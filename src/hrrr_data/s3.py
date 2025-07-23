@@ -15,7 +15,7 @@ In this module, we refer to the "keys" as "paths", and they are relative to the 
 
 BUCKET = 'noaa-hrrr-bdp-pds'
 
-def ls(path:str):
+def ls(path:str) -> list[str]:
   
   '''
   
@@ -47,7 +47,7 @@ def ls(path:str):
   
   return paths
 
-def ls_re(path:str):
+def ls_re(path:str) -> list[str]:
   
   '''
   

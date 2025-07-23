@@ -2,7 +2,7 @@ import s3fs
 import xarray as xr
 
 '''
-Tools for operations on HRRR data files on S3 (Amazon Simple Storage System).
+Tools for operations on HRRR data files (in GRIB format) on S3 (Amazon Simple Storage System).
 '''
 
 BUCKET = 'noaa-hrrr-bdp-pds'
@@ -14,9 +14,9 @@ def ls(path:str):
   List the contents of a S3 "directory".
   
   Args:
-        path (str): The key of the file in the S3 bucket. May contain wildcards (regular expressions).
+        path (str): The path ("key") in the S3 HRRR bucket. May contain wildcards (regular expressions).
         
-                    An example path is 'hrrr.20201203/conus/*'.
+                    An example path (key) is 'hrrr.20201203/conus/*'.
   
   '''
   

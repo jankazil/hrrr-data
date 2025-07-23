@@ -1,0 +1,13 @@
+LICENSE
+README.md
+pyproject.toml
+setup.cfg
+src/hrrr_data/__init__.py
+src/hrrr_data/s3.py
+src/hrrr_data/s3_list_files.py
+src/hrrr_data/s3_list_variables.py
+src/hrrr_data.egg-info/PKG-INFO
+src/hrrr_data.egg-info/SOURCES.txt
+src/hrrr_data.egg-info/dependency_links.txt
+src/hrrr_data.egg-info/top_level.txt
+tests/test_ls.py

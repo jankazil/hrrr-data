@@ -1,6 +1,7 @@
 from pathlib import Path
 import pygrib
 import subprocess
+import xarray as xr
 
 """
 Tools for operations on files in GRIB and netCDF format.
@@ -72,5 +73,31 @@ def grib2nc(grib_file:Path):
         print(result.stderr)
     
     return output_file
+    
+def nc2nc_extract_vars(in_file:Path, out_file:Path, variables:list[str]):
+    
+    """
+    Extracts given variables from a file in netCDF format and saves them in a file in netCDF format.
+    
+    Args:
+        in_file (Path): File in netCDF format from which the variables will be extracted.
+        out_file (Path): File in netCDF format in which the variables will be saved. If the file exists, it will be overwritten.
+        variables (list of str): netCDF variable names.
+    """
+    
+    # Open the file
+    
+    with xr.open_dataset(in_file) as ds:
+        
+        # Check for missing variables
+        missing_vars = [var for var in variables if var not in ds.variables]
+        if missing_vars:
+            raise KeyError(f'The following variables are not found in the input file: {missing_vars}')
+        
+        # Select the requested variables:
+        ds_subset = ds[variables]
+        
+        # Write to output netCDF file, overwrite if it exists
+        ds_subset.to_netcdf(out_file,mode='w')
     
     

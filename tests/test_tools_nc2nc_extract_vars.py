@@ -13,10 +13,11 @@ out_file = in_file.parent / out_file_name
 
 variables = [
 'TMP_P0_L103_GLC0',
+'DPT_P0_L103_GLC0',
 'RH_P0_L103_GLC0',
 'UGRD_P0_L103_GLC0',
 'VGRD_P0_L103_GLC0',
-'PRATE_P0_L1_GLC0',
+'APCP_P8_L1_GLC0_acc24h',
 'APCP_P8_L1_GLC0_acc1h',
 ]
 

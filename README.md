@@ -42,9 +42,7 @@ All test scripts demonstrate usage and serve as functional examples. See:
 
 ## Disclaimer
 
-This software is provided "as is", without warranty of any kind. It is intended for research and educational purposes only. The author assumes no responsibility for any damage or loss resulting from its use.
-
-The HRRR data accessed by this software is publicly available from NOAA and is subject to their terms of use. This project is not affiliated with or endorsed by NOAA.
+The HRRR data accessed by this software are publicly available from NOAA and are subject to their terms of use. This project is not affiliated with or endorsed by NOAA.
 
 ## Author
 

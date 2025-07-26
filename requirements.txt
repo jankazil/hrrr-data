@@ -1,0 +1,4 @@
+# Python packages
+s3fs
+xarray
+pygrib

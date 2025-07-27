@@ -31,6 +31,7 @@ All test scripts demonstrate usage and serve as functional examples. See:
 
 - `test_s3_ls.py` and `test_s3_ls_re.py` for listing available HRRR files
 - `test_s3_download.py` for downloading a sample GRIB2 file
+- `test_s3_download_date_range.py` for downloading a GRIB2 files for a given date range
 - `test_tools_grib_list_vars.py` for variable introspection
 - `test_tools_grib2nc.py` for file format conversion
 - `test_tools_nc2nc_extract_vars.py` for variable filtering

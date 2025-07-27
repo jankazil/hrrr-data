@@ -10,6 +10,7 @@ src/hrrr_data.egg-info/SOURCES.txt
 src/hrrr_data.egg-info/dependency_links.txt
 src/hrrr_data.egg-info/top_level.txt
 tests/test_s3_download.py
+tests/test_s3_download_date_range.py
 tests/test_s3_ls.py
 tests/test_s3_ls_re.py
 tests/test_tools_grib2nc.py

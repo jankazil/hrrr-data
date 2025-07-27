@@ -1,4 +1,5 @@
 import s3fs
+from datetime import datetime, timedelta
 from pathlib import Path
 
 """
@@ -108,3 +109,65 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False) -> Path:
 
     return local_file
 
+def download_date_range(
+    start_date: datetime,
+    end_date: datetime,
+    region: str,
+    init_hour : int,
+    forecast_hour : int,
+    data_type : str,
+    local_dir: Path,
+    refresh: bool = False) -> list[Path]:
+    
+    """
+    Downloads HRRR data files from S3 starting between (inclusive) given start and end dates.
+    
+    Args:
+        start_date (datetime): The date of the first data file
+        end_data (datetime): The date of the last data file
+        region (str): One of 'alaska','conus'
+        init_hour (int): Simulation initialization hour (UTC)
+        forecast_hour (int): Simulation forecast hour
+        data_type (str): A string specifying the data type in NOWW S3 HRRR data file name, e.g. 'wrfsfc'.
+        local_dir (Path): Local directory where the files will be downloaded. Created if it does not exist.
+        refresh (bool, optional): If True, download even if the file already exists. Defaults to False.
+
+    Returns:
+        list[Path]: List of local paths of the downloaded files.
+    """
+    
+    # Construct the paths (S3 keys) of the data files
+    
+    hrrr_files = []
+    
+    date = start_date
+    
+    while date <= end_date:
+        
+        hrrr_file = 'hrrr.'
+        hrrr_file = hrrr_file + str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2)
+        hrrr_file = hrrr_file + '/'
+        hrrr_file = hrrr_file + region
+        hrrr_file = hrrr_file + '/'
+        hrrr_file = hrrr_file + 'hrrr.t'
+        hrrr_file = hrrr_file + str(init_hour).zfill(2)
+        hrrr_file = hrrr_file + 'z.'
+        hrrr_file = hrrr_file + data_type
+        hrrr_file = hrrr_file + 'f'
+        hrrr_file = hrrr_file + str(forecast_hour).zfill(2)
+        hrrr_file = hrrr_file + '.grib2'
+        
+        hrrr_files.append(hrrr_file)
+        
+        date += timedelta(days=1)
+    
+    # Download files
+    
+    local_files = []
+    
+    for hrrr_file in hrrr_files:
+        print('Fetching from the NOAA HRRR S3 archive: ' + hrrr_file)
+        local_file = download(hrrr_file,local_dir,refresh)
+        local_files.append(local_file)
+    
+    return local_files

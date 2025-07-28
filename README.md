@@ -46,10 +46,7 @@ All test scripts demonstrate usage and serve as functional examples. See:
 The HRRR data accessed by this software are publicly available from NOAA and are subject to their terms of use. This project is not affiliated with or endorsed by NOAA.
 
 ## Author
-
-Jan Kazil  
-[jankazil.com](https://jankazil.com)  
-jan.kazil.research@gmail.com
+Jan Kazil - jan.kazil.dev@gmail.com - [jankazil.com](https://jankazil.com)  
 
 ## License
 

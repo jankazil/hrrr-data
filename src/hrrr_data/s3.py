@@ -122,7 +122,7 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False) -> Path:
     checksum = md5sum(local_file)
     
     if ETag != checksum:
-        message = 'Download may have failed failed: ETag of local file ' + str(local_file) + ' does not match ETag of S3 file ' + BUCKET + '/' + hrrr_file
+        message = 'Download may have failed: ETag of local file ' + str(local_file) + ' does not match ETag of S3 file ' + BUCKET + '/' + hrrr_file
         warnings.warn(message)
         #raise Exception(message)
     

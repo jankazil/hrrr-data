@@ -171,3 +171,27 @@ def download_date_range(
         local_files.append(local_file)
     
     return local_files
+
+def info(hrrr_file: str) -> dict:
+    
+    """
+    
+    Retrieves properties of an object in the S3 HRRR bucket.
+    
+    Args:
+        hrrr_file (str): Path of the HRRR data file in the HRRR bucket (S3 key).
+    
+    Returns:
+        dict: Dictionary containing S3 object properties, as returned by
+              `s3fs.S3FileSystem.info`. Includes fields like size, last_modified,
+              ETag, and Metadata (user-defined metadata).
+              
+              The units of size are bytes, the time is given as UTC,
+              at the time of writing this code.
+    
+    """
+    
+    fs = s3fs.S3FileSystem(anon=True)
+    info = fs.info(BUCKET + '/' + hrrr_file)
+    
+    return info

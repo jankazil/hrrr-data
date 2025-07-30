@@ -9,11 +9,13 @@ The project consists of two main modules:
 - **`s3.py`**: Functions for interacting with the NOAA HRRR S3 bucket, including:
   - Listing available files via direct path matching or wildcard-style expressions
   - Downloading HRRR data files from S3 to a local directory
+  - Retrieving S3 object metadata (size, last modified, ETag, user-defined metadata, etc.) for a file within the NOAA HRRR S3 bucket
 
 - **`tools.py`**: Utilities for working with HRRR data in GRIB2 and netCDF formats, including:
   - Listing variables in GRIB2 files (`pygrib`)
   - Converting GRIB2 files to netCDF using `ncl_convert2nc`
   - Extracting selected variables from netCDF files using `xarray`
+  - Retrieving the metadata for a HRRR file in S3
 
 ## Dependencies
 
@@ -35,6 +37,7 @@ All test scripts demonstrate usage and serve as functional examples. See:
 - `test_tools_grib_list_vars.py` for variable introspection
 - `test_tools_grib2nc.py` for file format conversion
 - `test_tools_nc2nc_extract_vars.py` for variable filtering
+- `test_s3_info.py` for retrieving and displaying object metadata for a file in the NOAA HRRR S3 bucket
 
 ## Notes
 

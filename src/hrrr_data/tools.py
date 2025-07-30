@@ -1,11 +1,11 @@
+"""
+Tools for operations on files in GRIB and netCDF format.
+"""
+
 from pathlib import Path
 import pygrib
 import subprocess
 import xarray as xr
-
-"""
-Tools for operations on files in GRIB and netCDF format.
-"""
 
 def grib_list_vars(file:Path) -> dict[str,str]:
     

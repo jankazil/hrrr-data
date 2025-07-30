@@ -1,8 +1,3 @@
-import s3fs
-import hashlib
-from datetime import datetime, timedelta
-from pathlib import Path
-
 """
 Tools for operations on HRRR data files (in GRIB format) on S3 (Amazon Simple Storage System).
 
@@ -14,6 +9,11 @@ The key is a unique string that identifies the object (like a file path).
 
 In this module, we refer to the "keys" as "paths", and they are relative to the NOAA HRRR bucket.
 """
+
+import s3fs
+import hashlib
+from datetime import datetime, timedelta
+from pathlib import Path
 
 BUCKET = 'noaa-hrrr-bdp-pds'
 

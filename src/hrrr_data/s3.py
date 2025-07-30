@@ -10,6 +10,7 @@ The key is a unique string that identifies the object (like a file path).
 In this module, we refer to the "keys" as "paths", and they are relative to the NOAA HRRR bucket.
 """
 
+import warnings
 import s3fs
 import hashlib
 from datetime import datetime, timedelta
@@ -110,7 +111,7 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False) -> Path:
         checksum = md5sum(local_file)
         
         if ETag == checksum:
-            print(BUCKET + '/' + hrrr_file, 'already available locally as ', str(local_file), '. Skipping download.')
+            print(BUCKET + '/' + hrrr_file, 'already available locally as ', str(local_file), '. Skipping download.', flush=True)
             return local_file
     
     # Download the file from S3
@@ -121,8 +122,9 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False) -> Path:
     checksum = md5sum(local_file)
     
     if ETag != checksum:
-        message = 'Download failed: local file ' + str(local_file) + ' does not match S3 file ' + BUCKET + '/' + hrrr_file
-        raise Exception(message)
+        message = 'Download may have failed failed: ETag of local file ' + str(local_file) + ' does not match ETag of S3 file ' + BUCKET + '/' + hrrr_file
+        warnings.warn(message)
+        #raise Exception(message)
     
     return local_file
 
@@ -183,7 +185,7 @@ def download_date_range(
     local_files = []
     
     for hrrr_file in hrrr_files:
-        print('Fetching from the NOAA HRRR S3 archive: ' + hrrr_file)
+        print('Fetching from the NOAA HRRR S3 archive: ' + hrrr_file, flush=True)
         local_file = download(hrrr_file,local_dir,refresh)
         local_files.append(local_file)
     

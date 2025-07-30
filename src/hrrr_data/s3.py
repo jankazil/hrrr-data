@@ -213,7 +213,7 @@ def info(hrrr_file: str) -> dict:
     
     return info
 
-def md5sum(local_file: str):
+def md5sum(local_file: Path):
     
     """Compute the MD5 hash of a file's contents.
     

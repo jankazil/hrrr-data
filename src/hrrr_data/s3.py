@@ -1,4 +1,5 @@
 import s3fs
+import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -98,15 +99,31 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False) -> Path:
 
     # Local file path
     local_file = Path(local_dir) / hrrr_file  # Path will normalize separators for the OS
-
-    # Check if file already exists
+    
+    # Get the ETag of the object from S3 (remove surrounding double quotes)
+    ETag = info(hrrr_file)['ETag'].strip('"')
+    
+    # Check if file already exists and is the same as the file in S3
     if not refresh and local_file.exists():
-        return local_file
-
+        
+        # Compare the MD5 hash with its ETag from S3
+        checksum = md5sum(local_file)
+        
+        if ETag == checksum:
+            print(BUCKET + '/' + hrrr_file, 'already available locally as ', str(local_file), '. Skipping download.')
+            return local_file
+    
     # Download the file from S3
     fs = s3fs.S3FileSystem(anon=True)
     fs.get(BUCKET + '/' + hrrr_file, str(local_file))
-
+    
+    # Check if the downloaded file matches the file in S3
+    checksum = md5sum(local_file)
+    
+    if ETag != checksum:
+        message = 'Download failed: local file ' + str(local_file) + ' does not match S3 file ' + BUCKET + '/' + hrrr_file
+        raise Exception(message)
+    
     return local_file
 
 def download_date_range(
@@ -195,3 +212,27 @@ def info(hrrr_file: str) -> dict:
     info = fs.info(BUCKET + '/' + hrrr_file)
     
     return info
+
+def md5sum(local_file: str):
+    
+    """Compute the MD5 hash of a file's contents.
+    
+    This function reads the file in binary mode and processes it in
+    fixed-size chunks to compute the MD5 checksum efficiently, without
+    loading the entire file into memory.
+    
+    Args:
+        local_file (str): Path to a local file.
+    
+    Returns:
+        str: Hexadecimal MD5 hash of the file contents.
+    
+    """
+    
+    h = hashlib.md5()
+    
+    with open(local_file, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            h.update(chunk)
+    
+    return h.hexdigest()

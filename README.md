@@ -4,7 +4,7 @@
 
 ## Overview
 
-The project consists of two main modules:
+The project consists of the following modules:
 
 - **`s3.py`**: Functions for interacting with the NOAA HRRR S3 bucket, including:
   - Listing available files via direct path matching or wildcard-style expressions

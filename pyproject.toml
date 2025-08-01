@@ -1,3 +1,20 @@
+[project]
+name = "hrrr-data"
+version = "0.1.3"
+description = "A toolkit for accessing, downloading, and processing High-Resolution Rapid Refresh (HRRR) forecast data"
+authors = [
+    { name="Jan Kazil", email="jan.kazil.dev@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "s3fs",
+    "xarray",
+    "pygrib"
+]
+
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+

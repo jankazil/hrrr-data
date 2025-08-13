@@ -1,4 +1,4 @@
-.PHONY: fmt lint type test clean
+.PHONY: fmt lint type test check clean 
 
 fmt:
 	python -m ruff format
@@ -11,6 +11,8 @@ type:
 
 test:
 	pytest
+
+check: fmt lint
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage dist build

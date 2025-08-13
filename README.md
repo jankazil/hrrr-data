@@ -17,27 +17,26 @@ The project consists of the following modules:
   - Extracting selected variables from netCDF files using `xarray`
   - Retrieving the metadata for a HRRR file in S3
 
-## Dependencies
-
-- Python ≥ 3.10
-- Required Python packages:
-  - `s3fs`
-  - `pygrib`
-  - `xarray`
-- Required external tool:
-  - `ncl_convert2nc` (part of the NCAR Command Language)
-
 ## Usage
 
-All test scripts demonstrate usage and serve as functional examples. See:
+Demo scripts demonstrate usage and serve as functional examples. See the `demos` directory:
 
-- `test_s3_ls.py` and `test_s3_ls_re.py` for listing available HRRR files
-- `test_s3_download.py` for downloading a sample GRIB2 file
-- `test_s3_download_date_range.py` for downloading a GRIB2 files for a given date range
-- `test_tools_grib_list_vars.py` for variable introspection
-- `test_tools_grib2nc.py` for file format conversion
-- `test_tools_nc2nc_extract_vars.py` for variable filtering
-- `test_s3_info.py` for retrieving and displaying object metadata for a file in the NOAA HRRR S3 bucket
+- `demo_s3_ls.py` and `demo_s3_ls_re.py` for listing available HRRR files
+- `demo_s3_download.py` for downloading a sample GRIB2 file
+- `demo_s3_download_date_range.py` for downloading a GRIB2 files for a given date range
+- `demo_tools_grib_list_vars.py` for variable introspection
+- `demo_tools_grib2nc.py` for file format conversion
+- `demo_tools_nc2nc_extract_vars.py` for variable filtering
+- `demo_s3_info.py` for retrieving and displaying object metadata for a file in the NOAA HRRR S3 bucket
+
+## Development
+
+### Code Quality and Testing Commands
+
+- `make fmt` - Runs ruff format, which automatically reformats Python files according to the style rules in `pyproject.toml`
+- `make lint` - Runs ruff check --fix, which lints the code (checks for style errors, bugs, outdated patterns, etc.) and auto-fixes what it can.
+- `make type` - Runs mypy, the static type checker, using the strictness settings from `pyproject.toml`. Mypy is a static type checker for Python, a dynamically typed language. Because static analysis cannot account for all dynamic runtime behaviors, mypy may report false positives which do no reflect actual runtime issues. The usefulness of mypy is therefore limited, unless the developer compensates with extra work for the choices that were made when Python was originally designed.
+- `make test` - Runs pytest with coverage reporting (configured in `pyproject.toml`).
 
 ## Notes
 

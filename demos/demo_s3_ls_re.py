@@ -8,4 +8,3 @@ files = s3.ls_re('hrrr.20201203/conus/*sfc*')
 
 for file in files:
     print(file)
-

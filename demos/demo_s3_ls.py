@@ -8,4 +8,3 @@ files = s3.ls('')
 
 for file in files:
     print(file)
-

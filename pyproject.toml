@@ -1,6 +1,6 @@
 [project]
 name = "hrrr-data"
-version = "1.0.0-b0"
+version = "1.0.0"
 description = "A toolkit for accessing, downloading, and processing ISD Lite data"
 readme = "README.md"
 requires-python = ">=3.10"

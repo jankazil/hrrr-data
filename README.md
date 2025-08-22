@@ -17,6 +17,8 @@ The project consists of the following modules:
   - Extracting selected variables from netCDF files using `xarray`
   - Retrieving the metadata for a HRRR file in S3
 
+- **`hrrr_plotting`**: Utilities for plotting HRRR data.
+
 ## Usage
 
 Demo scripts demonstrate usage and serve as functional examples. See the `demos` directory:

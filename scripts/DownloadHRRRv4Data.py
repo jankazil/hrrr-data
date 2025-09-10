@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 """
 Download files within a given time range from the S3 HRRR bucket,
@@ -9,8 +8,7 @@ and extracts select variables into netCDF files.
 from datetime import datetime
 from pathlib import Path
 
-from hrrr_data import s3
-from hrrr_data import tools
+from hrrr_data import s3, tools
 
 #
 # Download data

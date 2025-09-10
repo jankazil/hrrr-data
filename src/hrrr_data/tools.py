@@ -116,7 +116,7 @@ def nc2nc_extract_vars(
         # Set the long names of the requested variables
 
         if long_names is not None:
-            for variable, long_name in zip(variables, long_names):
+            for variable, long_name in zip(variables, long_names, strict=False):
                 if long_name is not None:
                     ds_subset[variable].attrs['long_name'] = long_name
 

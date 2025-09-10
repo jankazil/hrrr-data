@@ -1,14 +1,11 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 """
 Extracts from local HRRR GRIB files select variables into netCDF files.
 """
 
-from datetime import datetime
 from pathlib import Path
 
-from hrrr_data import s3
 from hrrr_data import tools
 
 #

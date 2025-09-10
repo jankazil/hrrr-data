@@ -2,22 +2,21 @@
 Tools for plotting High Resolution Rapid Refresh (HRRR) data.
 '''
 
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
-from cartopy.mpl.ticker import LongitudeLocator, LatitudeLocator
-
+import warnings
 from datetime import datetime, timedelta, timezone
-
 from pathlib import Path
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
-
-from shapely.geometry.base import BaseGeometry
-
-import warnings
-
 import xarray as xr
+from cartopy.mpl.ticker import (
+    LatitudeFormatter,
+    LatitudeLocator,
+    LongitudeFormatter,
+    LongitudeLocator,
+)
+from shapely.geometry.base import BaseGeometry
 
 
 def plot_geographic(
@@ -183,7 +182,7 @@ def plot_geographic(
             raise ValueError(f'Geometry-related lists must all have the same length, got {lengths}')
 
     if any(lst is None for lst in lists) and any(lst is not None for lst in lists):
-        warnings.warn('Some geometry-related arguments are "None". No geometries will be plotted.')
+        warnings.warn('Some geometry-related arguments are "None". No geometries will be plotted.',stacklevel=2)
 
     #
     # Data and coordinates
@@ -321,10 +320,10 @@ def plot_geographic(
         and location_sizes is not None
     ):
         for location_legend, lons, lats, location_color, location_size in zip(
-            location_legends, location_lons, location_lats, location_colors, location_sizes
+            location_legends, location_lons, location_lats, location_colors, location_sizes, strict=False
         ):
-            for lon, lat in zip(lons, lats):
-                dot = ax.plot(
+            for lon, lat in zip(lons, lats, strict=False):
+                ax.plot(
                     lon,
                     lat,
                     marker='o',
@@ -358,7 +357,7 @@ def plot_geographic(
             geometries_edgecolors,
             geometries_linewidths,
             geometries_alphas,
-            geometries,
+            geometries, strict=False,
         ):
             ax.add_geometries(
                 [geometry],  # accepts an iterable of shapely geometries
@@ -388,7 +387,7 @@ def plot_geographic(
     #
 
     if legend_handles:
-        legend = ax.legend(
+        ax.legend(
             handles=legend_handles,
             loc='lower left',  # Do not use 'best' - this may cause execution to continue for too long when too many items are plotted
             fontsize=10,
@@ -401,6 +400,6 @@ def plot_geographic(
 
     if plot_path is not None:
         plot_path.parent.mkdir(parents=True, exist_ok=True)
-        path = fig.savefig(plot_path, bbox_inches="tight", dpi=300)
+        fig.savefig(plot_path, bbox_inches="tight", dpi=300)
 
     return

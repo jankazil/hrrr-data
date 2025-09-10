@@ -64,6 +64,15 @@ for grib_file in grib_files:
     ncfile = tools.grib2nc(grib_file)
     ncfile_select_vars_name = str(ncfile.stem) + '_select_vars.nc'
     ncfile_select_vars = ncfile.parent / ncfile_select_vars_name
-    tools.nc2nc_extract_vars(ncfile, ncfile_select_vars, variables, long_names = long_names, global_attributes = global_attributes)
+    tools.nc2nc_extract_vars(
+        ncfile,
+        ncfile_select_vars,
+        variables,
+        long_names=long_names,
+        global_attributes=global_attributes,
+    )
     ncfile.unlink()
-    print('Extracted select variables from ' + str(grib_file) + ' to ' + str(ncfile_select_vars),flush=True)
+    print(
+        'Extracted select variables from ' + str(grib_file) + ' to ' + str(ncfile_select_vars),
+        flush=True,
+    )

@@ -71,14 +71,14 @@ def grib2nc(grib_file: Path):
 
     return output_file
 
+
 def nc2nc_extract_vars(
     in_file: Path,
     out_file: Path,
     variables: list[str],
     long_names: list[str | None] | None = None,
     global_attributes: dict[str, str | None] | None = None,
-    ):
-    
+):
     """
     Extracts given variables from a file in netCDF format and saves them in a file in netCDF format.
 
@@ -112,16 +112,16 @@ def nc2nc_extract_vars(
 
         # Select the requested variables:
         ds_subset = ds[variables]
-        
+
         # Set the long names of the requested variables
-        
+
         if long_names is not None:
-            for variable, long_name in zip(variables,long_names):
+            for variable, long_name in zip(variables, long_names):
                 if long_name is not None:
                     ds_subset[variable].attrs['long_name'] = long_name
 
         # Set the requested global attributes
-        
+
         if global_attributes is not None:
             for global_attribute in global_attributes:
                 if global_attributes[global_attribute] is not None:

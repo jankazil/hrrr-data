@@ -36,12 +36,12 @@ variables = [
 ]
 
 long_names = [
-    'Temperature 2 m above ground',
-    'Dewpoint temperature 2 m above ground',
-    'Relative humidity 2 m above ground',
-    'West-east wind velocity',
-    'South-north wind velocity',
-    'Total 1 h accumulated precipitation',
+    'Air temperature at 2 m above ground',
+    'Dew point temperature at 2 m above ground',
+    'Relative humidity at 2 m above ground',
+    'West-east wind speed',
+    'South-north wind speed',
+    '1 h accumulated precipitation',
 ]
 
 global_attributes = {}

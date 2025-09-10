@@ -9,12 +9,12 @@ from hrrr_data import s3
 
 local_dir = Path('..') / 'data' / 'HRRR'
 
-start_date = datetime(2020, 12, 3)
-end_date = datetime(2020, 12, 5)
+start_date = datetime(2025, 1, 1)
+end_date = datetime(2025, 6, 30)
 
 region = 'conus'
-init_hour = 0
-forecast_hour = 24
+init_hour = 12
+forecast_hour = 32
 
 data_type = 'wrfsfc'
 

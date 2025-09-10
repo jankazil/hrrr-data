@@ -71,15 +71,33 @@ def grib2nc(grib_file: Path):
 
     return output_file
 
-
-def nc2nc_extract_vars(in_file: Path, out_file: Path, variables: list[str]):
+def nc2nc_extract_vars(
+    in_file: Path,
+    out_file: Path,
+    variables: list[str],
+    long_names: list[str | None] | None = None,
+    global_attributes: dict[str, str | None] | None = None,
+    ):
+    
     """
     Extracts given variables from a file in netCDF format and saves them in a file in netCDF format.
 
-    Args:
-        in_file (Path): File in netCDF format from which the variables will be extracted.
-        out_file (Path): File in netCDF format in which the variables will be saved. If the file exists, it will be overwritten.
-        variables (list of str): netCDF variable names.
+    Arguments
+    ---------
+        in_file (Path):
+            File in netCDF format from which the variables will be extracted.
+        out_file (Path):
+            File in netCDF format in which the variables will be saved. If the file exists, it will be overwritten.
+        variables (list of str):
+            netCDF variable names.
+        long_names (list of str | None, optional):
+            Descriptive names for the extracted variables, aligned by position to `variables`.
+            If provided, the list length must match `variables`. A value of None leaves the
+            variable’s `long_name` unchanged. Defaults to None.
+        global_attributes (dict[str, str | None], optional):
+            Global attributes to set in the output dataset. Keys are attribute names and
+            values are attribute values. A value of None leaves that attribute unchanged.
+            Defaults to None.
     """
 
     # Open the file
@@ -94,6 +112,20 @@ def nc2nc_extract_vars(in_file: Path, out_file: Path, variables: list[str]):
 
         # Select the requested variables:
         ds_subset = ds[variables]
+        
+        # Set the long names of the requested variables
+        
+        if long_names is not None:
+            for variable, long_name in zip(variables,long_names):
+                if long_name is not None:
+                    ds_subset[variable].attrs['long_name'] = long_name
+
+        # Set the requested global attributes
+        
+        if global_attributes is not None:
+            for global_attribute in global_attributes:
+                if global_attributes[global_attribute] is not None:
+                    ds_subset.attrs[global_attribute] = global_attributes[global_attribute]
 
         # Write to output netCDF file, overwrite if it exists
         ds_subset.to_netcdf(out_file, mode='w')

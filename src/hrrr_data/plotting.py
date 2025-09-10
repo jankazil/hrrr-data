@@ -13,14 +13,18 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
+from shapely.geometry.base import BaseGeometry
+
+import warnings
+
 import xarray as xr
 
 def plot_geographic(
     hrrr_ds : xr.Dataset,
     hrrr_var : str,
     title: str = None,
+    cmap=None,
     cbar_label: str = None,
-    plot_path: Path = None,
     lon_min: float = None,
     lon_max: float = None,
     lat_min: float = None,
@@ -30,7 +34,13 @@ def plot_geographic(
     location_sizes: list[float] = None,
     location_lons: list[list[float]] = None,
     location_lats: list[list[float]] = None,
-    cmap=None,
+    geometries: list[BaseGeometry] = None,
+    geometries_names: list[str] = None,
+    geometries_facecolors: list[str] = None,
+    geometries_edgecolors: list[str] = None,
+    geometries_linewidths: list[float] = None,
+    geometries_alphas: list[float] = None,
+    plot_path: Path = None,
 ) -> None:
     
     '''
@@ -61,14 +71,16 @@ def plot_geographic(
             Figure title. If omitted, a title will be constructed from the HRRR
             initialization time and forecast lead.
             
+        cmap : str, matplotlib.colors.Colormap, or None, optional
+            Colormap to use for mapping data values to colors. Can be the name of a
+            Matplotlib colormap (e.g. 'viridis', 'plasma', 'coolwarm'), or a
+            `matplotlib.colors.Colormap` object. If None (default), the current
+            Matplotlib default colormap (`viridis`) is used.            
+    
         cbar_label : str, optional
             Colorbar label text. If omitted, will use '<long_name> (<units>)' from
             the variable attributes.
             
-        plot_path : pathlib.Path, optional
-            If provided, the figure will be saved to this path (parent directories
-            will be created as needed). No file is saved if `plot_path` is None.
-    
         lon_min : float, optional
             Western longitude bound (degrees) for the map extent. Used only if all four
             of lon_min, lon_max, lat_min, and lat_max are provided.
@@ -98,23 +110,81 @@ def plot_geographic(
             
         location_lats : sequence type[sequence type[float]], optional
             Latitudes for each location group. Shapes must mirror `location_lons`.
-            
-    cmap : str, matplotlib.colors.Colormap, or None, optional
-            Colormap to use for mapping data values to colors. Can be the name of a
-            Matplotlib colormap (e.g. 'viridis', 'plasma', 'coolwarm'), or a
-            `matplotlib.colors.Colormap` object. If None (default), the current
-            Matplotlib default colormap (`viridis`) is used.            
+        
+        geometries : list[shapely.geometry.base.BaseGeometry], optional
+            List of Shapely geometries to overlay on the map. Each element may be a
+            Polygon, MultiPolygon, LineString, MultiLineString, Point, or MultiPoint.
+            All geometries are assumed to be expressed in the CRS specified by the plot
+            (typically PlateCarree for geographic coordinates).
+
+        geometries_names : list[str], optional
+            Labels for each geometry. Used to build a legend if provided. Must have the
+            same length as `geometries`.
+
+        geometries_facecolors : list[str], optional
+            Fill colors for the geometries. Each entry may be a Matplotlib color string
+            or an RGBA tuple (the latter allows per-geometry transparency). Use
+            `"none"` for transparent interiors. Length must match `geometries`.
+
+        geometries_edgecolors : list[str], optional
+            Edge colors for the geometry outlines. Same interpretation as
+            `geometries_facecolors`. Length must match `geometries`.
+
+        geometries_linewidths : list[float], optional
+            Line widths (points) for drawing geometry outlines. Length must match
+            `geometries`.
+
+        geometries_alphas : list[float], optional
+            Transparency values (0.0–1.0) applied to geometries. Applies equally to
+            face and edge unless RGBA tuples are used in `geometries_facecolors`.
+            Length must match `geometries`.
+        
+        plot_path : pathlib.Path, optional
+            If provided, the figure will be saved to this path (parent directories
+            will be created as needed). No file is saved if `plot_path` is None.
     
     Returns:
         None
         
     Notes:
-        location plotting expects all of the following to be provided together:
+        all of the following to be provided together:
+        
         `location_legends`, `location_colors`, `location_sizes`, `location_lons`, and
         `location_lats`. Each position i across these sequences defines one location
         group that will be plotted and labeled in the legend.
+        
+        `geometries`, `geometries_names`, `geometries_facecolors`, `geometries_edgecolors`,
+        `geometries_linewidths`, `geometries_alphas`. Each position i across these sequences
+        defines one geometry that will be overplotted and labeled in the legend.
+
     '''
     
+    #
+    # Check geometry arguments:
+    #
+    
+    lists = [
+        geometries,
+        geometries_names,
+        geometries_facecolors,
+        geometries_edgecolors,
+        geometries_linewidths,
+        geometries_alphas,
+    ]
+    
+    plot_geometries = True
+    
+    if any(lst is None for lst in lists):
+        plot_geometries = False
+    
+    if plot_geometries:
+        lengths = [len(lst) for lst in lists]
+        if len(set(lengths)) != 1:
+            raise ValueError(f'Geometry-related lists must all have the same length, got {lengths}')
+    
+    if any(lst is None for lst in lists) and any(lst is not None for lst in lists):
+      warnings.warn('Some geometry-related arguments are "None". No geometries will be plotted.')
+
     #
     # Data and coordinates
     #
@@ -140,7 +210,7 @@ def plot_geographic(
     # Title
     
     if title is None:
-      title = 'HRRR, ' + 'initialization time = ' + forecast_init_time.isoformat() + ', forecast time (+' + str(forecast_lead_time_hours) + ' h) = ' + forecast_time.isoformat()
+      title = 'HRRR, ' + 'initialization = ' + forecast_init_time.isoformat() + ', forecast (+' + str(forecast_lead_time_hours) + ' h) = ' + forecast_time.isoformat()
     
     # Colorbar title
     
@@ -274,7 +344,43 @@ def plot_geographic(
             
             legend_handles.append(legend_handle)
     
+    #
+    # Draw regions based on the provided geometries using the Cartopy method 'add_geometries'
+    #
+    
+    if plot_geometries:
+        
+        for name, facecolor, edgecolor, linewidth, alpha, geometry in zip(geometries_names, geometries_facecolors, geometries_edgecolors, geometries_linewidths, geometries_alphas, geometries):
+            ax.add_geometries(
+            [geometry],                 # accepts an iterable of shapely geometries
+            crs=ccrs.PlateCarree(),     # source coordinate reference system
+            facecolor=facecolor,
+            edgecolor=edgecolor,
+            linewidth=linewidth,
+            alpha=alpha,
+            label=name
+            )
+            
+            # Legend handle
+            
+            if (edgecolor is not None):
+                legend_color = edgecolor
+            else:
+                legend_color = facecolor
+            
+            legend_handle = plt.Line2D(
+                [], [],
+                marker='none',
+                color=legend_color,
+                linestyle='-',
+                label=name
+                )
+          
+            legend_handles.append(legend_handle)
+    
+    #
     # Add location legends
+    #
     
     if legend_handles:
         legend = ax.legend(
@@ -283,7 +389,7 @@ def plot_geographic(
         fontsize=10,
         frameon=True
         )
-    
+
     #
     # Save plot
     #

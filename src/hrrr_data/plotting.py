@@ -182,7 +182,10 @@ def plot_geographic(
             raise ValueError(f'Geometry-related lists must all have the same length, got {lengths}')
 
     if any(lst is None for lst in lists) and any(lst is not None for lst in lists):
-        warnings.warn('Some geometry-related arguments are "None". No geometries will be plotted.',stacklevel=2)
+        warnings.warn(
+            'Some geometry-related arguments are "None". No geometries will be plotted.',
+            stacklevel=2,
+        )
 
     #
     # Data and coordinates
@@ -320,7 +323,12 @@ def plot_geographic(
         and location_sizes is not None
     ):
         for location_legend, lons, lats, location_color, location_size in zip(
-            location_legends, location_lons, location_lats, location_colors, location_sizes, strict=False
+            location_legends,
+            location_lons,
+            location_lats,
+            location_colors,
+            location_sizes,
+            strict=False,
         ):
             for lon, lat in zip(lons, lats, strict=False):
                 ax.plot(
@@ -357,7 +365,8 @@ def plot_geographic(
             geometries_edgecolors,
             geometries_linewidths,
             geometries_alphas,
-            geometries, strict=False,
+            geometries,
+            strict=False,
         ):
             ax.add_geometries(
                 [geometry],  # accepts an iterable of shapely geometries

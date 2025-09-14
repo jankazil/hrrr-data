@@ -8,6 +8,12 @@ license = { file = "LICENSE" }
 authors = [{ name = "Jan Kazil" }]
 dependencies = []
 
+[tool.setuptools]
+script-files = [
+  "scripts/DownloadHRRRSurfaceForecast.py",
+  "scripts/ConvertHRRRSurfaceForecast2netCDF.py"
+]
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8",

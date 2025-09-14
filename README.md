@@ -7,14 +7,18 @@
 This repository provides two top-level scripts for working with HRRR surface forecast data:
 
 - **`DownloadHRRRSurfaceForecast.py`**  
-  Downloads HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, valid hour, and region.  
+
+  Downloads HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, valid hour, and region. Call with -h to obtain detailed usage information.  
+
   The script:
   1. Accepts user-specified start and end dates, initialization hour, forecast valid hour, region, and local output directory.
   2. Downloads the matching GRIB2 files.
   3. Converts each GRIB2 file to netCDF containing commonly used subset of variables (temperature, dew point, relative humidity, wind components, precipitation) and writes them to netCDF files with metadata.
 
 - **`ConvertHRRRSurfaceForecast2netCDF.py`**  
-  Processes a single local HRRR GRIB2 file and writes a new netCDF file containing a selected set of variables.  
+
+  Processes a single local HRRR GRIB2 file and writes a new netCDF file containing a selected set of variables. Call with -h to obtain detailed usage information.  
+
   The script:
   1. Accepts the path to a GRIB2 file as input.
   2. Extracts a predefined set of meteorological variables, including temperature, dew point, humidity, wind, and precipitation.

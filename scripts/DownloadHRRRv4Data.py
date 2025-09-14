@@ -17,9 +17,9 @@ from hrrr_data import s3, tools
 # Directory where data will be stored
 local_dir = Path('..') / 'data'
 
-# HRRR v4 starts on Dec 3 2020
-start_date = datetime(2020, 12, 3)
-end_date = datetime(2020, 12, 4)
+# HRRR v4 starts on Dec 2 2020
+start_date = datetime(2020, 12, 2)
+end_date = datetime(2025, 6, 30)
 
 region = 'conus'
 data_type = 'wrfsfc'

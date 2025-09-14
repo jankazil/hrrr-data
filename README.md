@@ -21,15 +21,35 @@ The project consists of the following modules:
 
 ## Usage
 
-Demo scripts demonstrate usage and serve as functional examples. See the `demos` directory:
+This repository provides two primary scripts for working with HRRR surface forecast data:
 
-- `demo_s3_ls.py` and `demo_s3_ls_re.py` for listing available HRRR files
-- `demo_s3_download.py` for downloading a sample GRIB2 file
-- `demo_s3_download_date_range.py` for downloading a GRIB2 files for a given date range
-- `demo_tools_grib_list_vars.py` for variable introspection
-- `demo_tools_grib2nc.py` for file format conversion
-- `demo_tools_nc2nc_extract_vars.py` for variable filtering
-- `demo_s3_info.py` for retrieving and displaying object metadata for a file in the NOAA HRRR S3 bucket
+- **`DownloadHRRRSurfaceForecast.py`**  
+  Downloads HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, valid hour, and region.  
+  The script:
+  1. Accepts user-specified start and end dates, initialization hour, forecast valid hour, region, and local output directory.
+  2. Downloads the matching GRIB2 files.
+  3. Converts each GRIB2 file to netCDF containing commonly used subset of variables (temperature, dew point, relative humidity, wind components, precipitation) and writes them to netCDF files with metadata.
+
+- **`ConvertHRRRSurfaceForecast2netCDF.py`**  
+  Processes a single local HRRR GRIB2 file and writes a new netCDF file containing a selected set of variables.  
+  The script:
+  1. Accepts the path to a GRIB2 file as input.
+  2. Extracts a predefined set of meteorological variables, including temperature, dew point, humidity, wind, and precipitation.
+  3. Writes the selected variables and metadata to a netCDF file and removes the intermediate netCDF file created during conversion.
+
+The GRIB-to-netCDF conversion requires `ncl_convert2nc` to be installed and available on the system path.
+
+### Demo Scripts
+
+The `demos` directory provides example scripts demonstrating individual operations:
+
+- `demo_s3_ls.py` and `demo_s3_ls_re.py` — List available HRRR files in the NOAA S3 bucket.
+- `demo_s3_download.py` — Download a single GRIB2 file.
+- `demo_s3_download_date_range.py` — Download GRIB2 files for a given date range.
+- `demo_tools_grib_list_vars.py` — List variables in a GRIB2 file.
+- `demo_tools_grib2nc.py` — Convert a GRIB2 file to netCDF.
+- `demo_tools_nc2nc_extract_vars.py` — Extract a subset of variables from an existing netCDF file.
+- `demo_s3_info.py` — Retrieve and display S3 object metadata.
 
 ## Development
 
@@ -40,11 +60,6 @@ Demo scripts demonstrate usage and serve as functional examples. See the `demos`
 - `make check` - Runs fmt and lint.
 - `make type` - Runs mypy, the static type checker, using the strictness settings from `pyproject.toml`. Mypy is a static type checker for Python, a dynamically typed language. Because static analysis cannot account for all dynamic runtime behaviors, mypy may report false positives which do no reflect actual runtime issues. The usefulness of mypy is therefore limited, unless the developer compensates with extra work for the choices that were made when Python was originally designed.
 - `make test` - Runs pytest with coverage reporting (configured in `pyproject.toml`).
-
-## Notes
-
-- The S3 operations are read-only and anonymous; no credentials are required.
-- The GRIB-to-netCDF conversion requires `ncl_convert2nc` to be installed and available on the system path.
 
 ## Disclaimer
 

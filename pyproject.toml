@@ -10,8 +10,10 @@ authors = [{ name = "Jan Kazil" }]
 dependencies = [
   "cartopy>=0.25.0",
   "matplotlib>=3.10.5",
+  "netCDF4",
   "pygrib>=2.1.6",
   "s3fs>=2025.7.0",
+  "scipy",
   "xarray>=2025.8.0"
 ]
 

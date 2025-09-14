@@ -6,7 +6,14 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "Jan Kazil" }]
-dependencies = []
+
+dependencies = [
+  "cartopy>=0.25.0"
+  "matplotlib>=3.10.5"
+  "pygrib>=2.1.6"
+  "s3fs>=2025.7.0"
+  "xarray>=2025.8.0"
+]
 
 [tool.setuptools]
 script-files = [

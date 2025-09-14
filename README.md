@@ -2,6 +2,10 @@
 
 **HRRR-data** is a Python toolkit for accessing, downloading, and processing High-Resolution Rapid Refresh (HRRR) forecast data from NOAA’s public S3 bucket. It provides utilities for listing available files, downloading data in GRIB2 format, converting GRIB2 to netCDF, and extracting selected variables from netCDF files.
 
+## Installation
+
+pip install git+https://github.com/jankazil/hrrr-data
+
 ## Usage
 
 This repository provides two top-level scripts for working with HRRR surface forecast data:

@@ -44,7 +44,8 @@ DownloadHRRRSurfaceForecast.py 2020 12 02 2020 12 02 12 32 conus data/
   
   1. Accepts the path to a GRIB2 file as input.  
   2. Extracts a predefined set of meteorological variables, including temperature, dew point, humidity, wind, and precipitation.  
-  3. Writes the selected variables and metadata to a netCDF file and removes the intermediate netCDF file created during conversion.  
+  3. Writes the selected variables and metadata to a netCDF file and removes the intermediate netCDF file created during conversion.   
+
 The GRIB-to-netCDF conversion requires `ncl_convert2nc` to be installed and available on the system path.  
 
 **Usage:**  

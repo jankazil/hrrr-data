@@ -22,6 +22,8 @@ This repository provides two top-level scripts for working with HRRR surface for
   2. Downloads the matching GRIB2 files.  
   3. Converts each GRIB2 file to netCDF containing commonly used subset of variables (temperature, dew point, relative humidity, wind components, precipitation) and writes them to netCDF files with metadata.  
 
+The GRIB-to-netCDF conversion requires `ncl_convert2nc` to be installed and available on the system path.  
+
 **Usage:**  
 
 ```bash

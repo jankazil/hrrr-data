@@ -33,7 +33,7 @@ DownloadHRRRSurfaceForecast.py <start_year> <start_month> <start_day> <end_year>
 **Example:**  
 
 ```bash
-DownloadHRRRSurfaceForecast.py 2020 12 02 2020 12 02 12 32 conus data/
+DownloadHRRRSurfaceForecast.py 2020 12 2 2020 12 2 12 32 conus data/
 ```
 
 ### **`ConvertHRRRSurfaceForecast2netCDF.py`**  

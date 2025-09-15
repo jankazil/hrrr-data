@@ -14,12 +14,24 @@ This repository provides two top-level scripts for working with HRRR surface for
 
 - **`DownloadHRRRSurfaceForecast.py`**  
 
-  Downloads HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, valid hour, and region. Call with -h to obtain detailed usage information.  
+  Downloads HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, forecast valid hour, and region. Call with -h to obtain detailed usage information.  
 
   The script:
   1. Accepts user-specified start and end dates, initialization hour, forecast valid hour, region, and local output directory.
   2. Downloads the matching GRIB2 files.
   3. Converts each GRIB2 file to netCDF containing commonly used subset of variables (temperature, dew point, relative humidity, wind components, precipitation) and writes them to netCDF files with metadata.
+
+**Usage:**  
+
+```bash
+DownloadHRRRSurfaceForecast.py <start_year> <start_month> <start_day> <end_year> <end_month> <end_day> <forecast_init_hour> <forecast_valid_hour> <hrrr_region> <data_dir>
+```
+
+**Example:**  
+
+```bash
+DownloadHRRRSurfaceForecast.py 2020 12 02 2020 12 02 12 32 conus data/
+```
 
 - **`ConvertHRRRSurfaceForecast2netCDF.py`**  
 
@@ -29,6 +41,18 @@ This repository provides two top-level scripts for working with HRRR surface for
   1. Accepts the path to a GRIB2 file as input.
   2. Extracts a predefined set of meteorological variables, including temperature, dew point, humidity, wind, and precipitation.
   3. Writes the selected variables and metadata to a netCDF file and removes the intermediate netCDF file created during conversion.
+
+**Usage:**  
+
+```bash
+ConvertHRRRSurfaceForecast2netCDF.py <hrrr_grib_file>
+```
+
+**Example:**  
+
+```bash
+ConvertHRRRSurfaceForecast2netCDF.py data/hrrr.20201202/conus/hrrr.t12z.wrfsfcf32.grib2
+```
 
 The GRIB-to-netCDF conversion requires `ncl_convert2nc` to be installed and available on the system path.
 

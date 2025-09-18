@@ -18,7 +18,7 @@ This repository provides two top-level scripts for downloading HRRR surface fore
 
 ### **`DownloadHRRRSurfaceForecast.py`**  
 
-  Downloads HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, forecast valid hour, and region. Call with -h to obtain detailed usage information.  
+  Downloads HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, forecast valid hour, and region. Call with -h to obtain detailed usage information. Supports parallel downloads for faster retrieval.   
 
   The script:  
   
@@ -31,13 +31,13 @@ The GRIB-to-netCDF conversion requires `ncl_convert2nc` to be installed and avai
 **Usage:**  
 
 ```bash
-DownloadHRRRSurfaceForecast.py <start_year> <start_month> <start_day> <end_year> <end_month> <end_day> <forecast_init_hour> <forecast_valid_hour> <hrrr_region> <data_dir>
+DownloadHRRRSurfaceForecast.py <start_year> <start_month> <start_day> <end_year> <end_month> <end_day> <forecast_init_hour> <forecast_valid_hour> <hrrr_region> <data_dir> [-n <n_parallel>]
 ```
 
 **Example:**  
 
 ```bash
-DownloadHRRRSurfaceForecast.py 2020 12 2 2020 12 2 12 32 conus data/
+DownloadHRRRSurfaceForecast.py 2020 12 2 2020 12 2 12 32 conus data/ -n 16
 ```
 
 ### **`ConvertHRRRSurfaceForecast2netCDF.py`**  

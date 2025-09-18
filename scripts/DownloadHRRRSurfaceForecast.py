@@ -9,7 +9,8 @@ The script performs the following steps:
 1. Parses user-specified start and end dates, forecast initialization hour,
    forecast valid hour, region, and local output directory.
 2. Downloads HRRR GRIB2 files from the public S3 bucket for the requested
-   time range and parameters.
+   time range and parameters, in parallel, with a user-specified number of
+   concurrent downloads.
 3. Converts downloaded GRIB2 files to netCDF format.
 4. Extracts a subset of commonly used variables (e.g., temperature, wind,
    humidity, precipitation) and writes them to separate netCDF files with
@@ -70,7 +71,7 @@ def arg_parse(argv=None):
     )
 
     # Optional arguments
-    # parser.add_argument('-x','--xxx', type=str, help='HELP STRING HERE')
+    parser.add_argument('-n','--n', type=int, help='Number of parallel download processes.')
 
     args = parser.parse_args()
 
@@ -80,11 +81,11 @@ def arg_parse(argv=None):
     forecast_hour = args.forecast_valid_hour
     region = args.region
     local_dir = Path(args.data_dir)
+    n_jobs = args.n
+    
+    return (start_date, end_date, init_hour, forecast_hour, region, local_dir,n_jobs)
 
-    return (start_date, end_date, init_hour, forecast_hour, region, local_dir)
-
-
-(start_date, end_date, init_hour, forecast_hour, region, local_dir) = arg_parse(sys.argv[1:])
+(start_date, end_date, init_hour, forecast_hour, region, local_dir, n_jobs) = arg_parse(sys.argv[1:])
 
 #
 # Download data
@@ -93,7 +94,7 @@ def arg_parse(argv=None):
 data_type = 'wrfsfc'  # Surface data
 
 grib_files = s3.download_date_range(
-    start_date, end_date, region, init_hour, forecast_hour, data_type, local_dir
+    start_date, end_date, region, init_hour, forecast_hour, data_type, local_dir, n_jobs = n_jobs
 )
 
 #

@@ -10,9 +10,9 @@ The key is a unique string that identifies the object (like a file path).
 In this module, we refer to the "keys" as "paths", and they are relative to the NOAA HRRR bucket.
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -95,9 +95,9 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False) -> Path:
     Returns:
         Path: Local path of the downloaded file.
     """
-    
+
     print('Downloading from the NOAA HRRR S3 archive the file ', hrrr_file, flush=True)
-    
+
     # Create local directory unless it exists
     path = Path(local_dir)
     path.mkdir(parents=True, exist_ok=True)
@@ -144,8 +144,10 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False) -> Path:
 
     return local_file
 
-def download_threaded(hrrr_files: list[str], local_dir: Path, refresh: bool = False, n_jobs: int = 1) -> Path:
-    
+
+def download_threaded(
+    hrrr_files: list[str], local_dir: Path, refresh: bool = False, n_jobs: int = 1
+) -> Path:
     """
      Download a list of HRRR data file from S3, except those that already exists in the local directory,
      in parallel.
@@ -161,13 +163,12 @@ def download_threaded(hrrr_files: list[str], local_dir: Path, refresh: bool = Fa
 
     if n_jobs is None:
         n_jobs = 1
-    
+
     local_files = []
-    
+
     with ThreadPoolExecutor(max_workers=n_jobs) as executor:
         futures = [
-            executor.submit(download, hrrr_file, local_dir, refresh)
-            for hrrr_file in hrrr_files
+            executor.submit(download, hrrr_file, local_dir, refresh) for hrrr_file in hrrr_files
         ]
         for future in as_completed(futures):
             try:
@@ -175,8 +176,9 @@ def download_threaded(hrrr_files: list[str], local_dir: Path, refresh: bool = Fa
                 local_files.append(local_file)
             except Exception as exc:
                 print(f"Download generated an exception: {exc}")
-    
+
     return local_files
+
 
 def download_date_range(
     start_date: datetime,
@@ -187,7 +189,7 @@ def download_date_range(
     data_type: str,
     local_dir: Path,
     refresh: bool = False,
-    n_jobs: int = 1
+    n_jobs: int = 1,
 ) -> list[Path]:
     """
     Downloads HRRR data files from S3 starting between (inclusive) given start and end dates,
@@ -237,7 +239,7 @@ def download_date_range(
     local_files = []
 
     local_files = download_threaded(hrrr_files, local_dir, refresh, n_jobs)
-    
+
     return local_files
 
 

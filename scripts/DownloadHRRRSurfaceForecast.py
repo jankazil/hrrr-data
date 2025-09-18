@@ -71,7 +71,7 @@ def arg_parse(argv=None):
     )
 
     # Optional arguments
-    parser.add_argument('-n','--n', type=int, help='Number of parallel download processes.')
+    parser.add_argument('-n', '--n', type=int, help='Number of parallel download processes.')
 
     args = parser.parse_args()
 
@@ -82,10 +82,13 @@ def arg_parse(argv=None):
     region = args.region
     local_dir = Path(args.data_dir)
     n_jobs = args.n
-    
-    return (start_date, end_date, init_hour, forecast_hour, region, local_dir,n_jobs)
 
-(start_date, end_date, init_hour, forecast_hour, region, local_dir, n_jobs) = arg_parse(sys.argv[1:])
+    return (start_date, end_date, init_hour, forecast_hour, region, local_dir, n_jobs)
+
+
+(start_date, end_date, init_hour, forecast_hour, region, local_dir, n_jobs) = arg_parse(
+    sys.argv[1:]
+)
 
 #
 # Download data
@@ -94,7 +97,7 @@ def arg_parse(argv=None):
 data_type = 'wrfsfc'  # Surface data
 
 grib_files = s3.download_date_range(
-    start_date, end_date, region, init_hour, forecast_hour, data_type, local_dir, n_jobs = n_jobs
+    start_date, end_date, region, init_hour, forecast_hour, data_type, local_dir, n_jobs=n_jobs
 )
 
 #

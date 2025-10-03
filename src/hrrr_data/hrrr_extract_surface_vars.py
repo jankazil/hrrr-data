@@ -16,7 +16,6 @@ from pathlib import Path
 
 from hrrr_data import tools
 
-
 VARIABLES = [
     "TMP_P0_L103_GLC0",
     "DPT_P0_L103_GLC0",
@@ -56,11 +55,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Path to GRIB2 file from which a netCDF file with select surface variables will be constructed.",
     )
     return parser
-    
+
 
 def extract_to_netcdf(grib_file: Path) -> Path:
     """Convert GRIB2 to netCDF and extract selected surface variables into a new file.
-    
+
     Returns the path to the netCDF with selected surface variables.
     """
     ncfile = tools.grib2nc(grib_file)
@@ -75,20 +74,20 @@ def extract_to_netcdf(grib_file: Path) -> Path:
     )
     ncfile.unlink()
     return ncfile_select_vars
-    
+
 
 def main(argv=None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     grib_path = Path(args.grib_file)
-    
+
     if not grib_path.exists():
         parser.error(f"GRIB2 file does not exist: {grib_path}")
-        
+
     out_file = extract_to_netcdf(grib_path)
     print(f"Extracted select surface variables from {grib_path} to {out_file}", flush=True)
     return 0
-    
+
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))

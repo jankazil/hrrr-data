@@ -6,14 +6,13 @@ into netCDF files.
 """
 
 import argparse
+import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-import shutil
 
 from hrrr_data import s3, tools
-
 
 VARIABLES = [
     "TMP_P0_L103_GLC0",
@@ -90,7 +89,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Extract select variables from downloaded GRIB2 files to netCDF files.",
     )
     return parser
-    
+
 
 def extract_to_netcdf(grib_file: Path) -> Path:
     if shutil.which("ncl_convert2nc") is None:
@@ -108,35 +107,37 @@ def extract_to_netcdf(grib_file: Path) -> Path:
     )
     ncfile.unlink()
     return ncfile_select_vars
-    
+
 
 def main(argv=None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
-    
+
     start_date = datetime(year=args.start_year, month=args.start_month, day=args.start_day)
     end_date = datetime(year=args.end_year, month=args.end_month, day=args.end_day)
     init_hour = args.forecast_init_hour
     forecast_hour = args.forecast_valid_hour
     region = args.region
     local_dir = Path(args.data_dir)
-    n_jobs: Optional[int] = args.n_jobs
+    n_jobs: int | None = args.n_jobs
     extract: Optional = args.extract
-    
+
     data_type = "wrfsfc"  # Surface data
-    
+
     grib_files = s3.download_date_range(
         start_date, end_date, region, init_hour, forecast_hour, data_type, local_dir, n_jobs=n_jobs
     )
-    
+
     if extract:
         for grib_file in grib_files:
             out_file = extract_to_netcdf(grib_file)
             if out_file:
-                print(f"Extracted select surface variables from {grib_file} to {out_file}", flush=True)
-            
+                print(
+                    f"Extracted select surface variables from {grib_file} to {out_file}", flush=True
+                )
+
     return 0
-    
+
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))

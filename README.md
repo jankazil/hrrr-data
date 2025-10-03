@@ -1,10 +1,17 @@
 # HRRR-data
 
-**HRRR-data** is a Python toolkit for accessing, downloading, and processing High-Resolution Rapid Refresh (HRRR) forecast data from NOAA’s public S3 bucket. It provides modules for
+**HRRR-data** is a Python toolkit for accessing, downloading, and processing High-Resolution Rapid Refresh (HRRR) forecast data from NOAA’s public S3 bucket.
 
-- Interacting with the NOAA HRRR S3 bucket and downloading HRRR forecast data
-- Working with HRRR data in GRIB2 and netCDF formats
-- Plotting HRRR data
+It provides:
+
+- Top level command-line tools that
+  - Download HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, forecast valid hour, and region.
+  - Processes a single local HRRR GRIB2 file and writes a new netCDF file containing a selected set of variables.
+
+- Modules for
+  - Interacting with the NOAA HRRR S3 bucket and downloading HRRR forecast data
+  - Working with HRRR data in GRIB2 and netCDF formats
+  - Plotting HRRR data
 
 ## Installation (Linux / macOS)
 
@@ -12,57 +19,71 @@
 pip install git+https://github.com/jankazil/hrrr-data
 ```
 
-## Usage
+## Overview
 
-This repository provides two top-level scripts for downloading HRRR surface forecast data files and converting them to netCDF files:
+This repository provides two top-level CLI scripts for working with HRRR surface forecasts:
 
-### **`DownloadHRRRSurfaceForecast.py`**  
+- **`hrrr-fetch-sfc-forecast`**: Download HRRR surface forecast GRIB2 files for a given date range, initialization hour, valid hour, and region from the NOAA S3 bucket. If requested, a subset of commonly used surface variables (temperature, humidity, wind, precipitation) is extracted into a netCDF file. Both the GRIB2 and the processed netCDF files are stored locally.
 
-  Downloads HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, forecast valid hour, and region. Call with -h to obtain detailed usage information. Supports parallel downloads for faster retrieval.   
+- **`hrrr-extract-sfc-vars`**: Process a single local HRRR GRIB2 file (previously downloaded) by converting it to netCDF and writing a new netCDF file that contains only a selected set of variables, with added long names and metadata attributes.
 
-  The script:  
-  
-  1. Accepts user-specified start and end dates, initialization hour, forecast valid hour, region, and local output directory.  
-  2. Downloads the matching GRIB2 files.  
-  3. Converts each GRIB2 file to netCDF containing commonly used subset of variables (temperature, dew point, relative humidity, wind components, precipitation) and writes them to netCDF files with metadata.  
+Selected surface variables:
 
-The GRIB-to-netCDF conversion requires `ncl_convert2nc` to be installed and available on the system path.  
+  - Air temperature at 2 m above ground
+  - Dew point temperature at 2 m above ground
+  - Relative humidity at 2 m above ground
+  - West-east wind speed at 10 m and 80 m above ground
+  - South-north wind speed at 10 m and 80 m above ground
+  - 1 h accumulated precipitation
+  - Specified height level above ground
 
-**Usage:**  
+## Workflow
 
-```bash
-DownloadHRRRSurfaceForecast.py <start_year> <start_month> <start_day> <end_year> <end_month> <end_day> <forecast_init_hour> <forecast_valid_hour> <hrrr_region> <data_dir> [-n <n_parallel>]
-```
+The typical workflow is:
 
-**Example:**  
+1. **Download forecast data** using `hrrr-fetch-sfc-forecast`, specifying the date range, initialization hour, valid hour, and region of interest. This fetches the GRIB2 files from the NOAA HRRR S3 bucket, stores them locally, and, if requested, processes them into netCDF files with selected surface variables.
 
-```bash
-DownloadHRRRSurfaceForecast.py 2020 12 2 2020 12 2 12 32 conus data/ -n 16
-```
+2. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a smaller set of variables for analysis.
 
-### **`ConvertHRRRSurfaceForecast2netCDF.py`**  
+3. **Work with the outputs** in standard netCDF format using your preferred scientific Python libraries (`xarray`, `netCDF4`, etc.), or integrate them into downstream machine learning and analytics workflows.
 
-  Processes a single local HRRR GRIB2 file and writes a new netCDF file containing a selected set of variables. Call with -h to obtain detailed usage information.  
+## Command-line interface (CLI)
 
-  The script:  
-  
-  1. Accepts the path to a GRIB2 file as input.  
-  2. Extracts a predefined set of meteorological variables, including temperature, dew point, humidity, wind, and precipitation.  
-  3. Writes the selected variables and metadata to a netCDF file and removes the intermediate netCDF file created during conversion.   
+### `hrrr-fetch-sfc-forecast`
 
-The GRIB-to-netCDF conversion requires `ncl_convert2nc` to be installed and available on the system path.  
+Download HRRR surface forecast GRIB2 files, convert them to netCDF, and extract selected variables.
 
-**Usage:**  
+**Usage:**
 
 ```bash
-ConvertHRRRSurfaceForecast2netCDF.py <hrrr_grib_file>
+hrrr-fetch-sfc-forecast START_YEAR START_MONTH START_DAY END_YEAR END_MONTH END_DAY INIT_HOUR VALID_HOUR REGION DATA_DIR [-n N_JOBS] [-e]
 ```
 
-**Example:**  
+**Arguments:**
+
+- `START_YEAR START_MONTH START_DAY`: beginning of date range (UTC).
+- `END_YEAR END_MONTH END_DAY`: end of date range (UTC).
+- `INIT_HOUR`: forecast initialization hour.
+- `VALID_HOUR`: forecast valid hour.
+- `REGION`: HRRR region (e.g. `conus`).
+- `DATA_DIR`: local directory for downloads and outputs.
+- `-n N_JOBS`: optional, number of parallel downloads.
+- `-e`: optional, extract a subset of commonly used surface variables (temperature, humidity, wind, precipitation) into a netCDF file
+
+### `hrrr-extract-sfc-vars`
+
+Extract selected variables from a single local HRRR GRIB2 file into a new netCDF file.
+
+**Usage:**
 
 ```bash
-ConvertHRRRSurfaceForecast2netCDF.py data/hrrr.20201202/conus/hrrr.t12z.wrfsfcf32.grib2
+hrrr-extract-sfc-vars /path/to/file.grib2
 ```
+
+**Arguments:**
+- `file.grib2`: path to a local HRRR GRIB2 file.
+
+The tool produces a new netCDF file named `<original_basename>_select_vars.nc` with variables such as 2-m air temperature, 2-m dew point, relative humidity, wind components, and 1-hour accumulated precipitation, and adds global metadata identifying the processing.
 
 ## Modules
 
@@ -83,23 +104,23 @@ ConvertHRRRSurfaceForecast2netCDF.py data/hrrr.20201202/conus/hrrr.t12z.wrfsfcf3
 
 The `demos` directory provides example scripts demonstrating individual operations:
 
-- `demo_s3_ls.py` and `demo_s3_ls_re.py` — List available HRRR files in the NOAA S3 bucket.
-- `demo_s3_download.py` — Download a single GRIB2 file.
-- `demo_s3_download_date_range.py` — Download GRIB2 files for a given date range.
-- `demo_tools_grib_list_vars.py` — List variables in a GRIB2 file.
-- `demo_tools_grib2nc.py` — Convert a GRIB2 file to netCDF.
-- `demo_tools_nc2nc_extract_vars.py` — Extract a subset of variables from an existing netCDF file.
-- `demo_s3_info.py` — Retrieve and display S3 object metadata.
+- `demo_s3_ls.py` and `demo_s3_ls_re.py`: List available HRRR files in the NOAA S3 bucket.
+- `demo_s3_download.py`: Download a single GRIB2 file.
+- `demo_s3_download_date_range.py`: Download GRIB2 files for a given date range.
+- `demo_tools_grib_list_vars.py`: List variables in a GRIB2 file.
+- `demo_tools_grib2nc.py`: Convert a GRIB2 file to netCDF.
+- `demo_tools_nc2nc_extract_vars.py`: Extract a subset of variables from an existing netCDF file.
+- `demo_s3_info.py`: Retrieve and display S3 object metadata.
 
 ## Development
 
 ### Code Quality and Testing Commands
 
 - `make fmt` - Runs ruff format, which automatically reformats Python files according to the style rules in `pyproject.toml`
-- `make lint` - Runs ruff check --fix, which lints the code (checks for style errors, bugs, outdated patterns, etc.) and auto-fixes what it can.
+- `make lint` - Runs ruff check --fix, which checks for style errors, bugs, outdated patterns, etc., and auto-fixes what it can.
 - `make check` - Runs fmt and lint.
-- `make type` - Runs mypy, the static type checker, using the strictness settings from `pyproject.toml`. Mypy is a static type checker for Python, a dynamically typed language. Because static analysis cannot account for all dynamic runtime behaviors, mypy may report false positives which do no reflect actual runtime issues. The usefulness of mypy is therefore limited, unless the developer compensates with extra work for the choices that were made when Python was originally designed.
-- `make test` - Runs pytest with coverage reporting (configured in `pyproject.toml`).
+- `make type` - Currently disabled. Runs mypy, the static type checker, using the strictness settings from `pyproject.toml`.
+- `make test` - Runs pytest with reporting (configured in `pyproject.toml`).
 
 ## Disclaimer
 
@@ -111,4 +132,3 @@ Jan Kazil - jan.kazil.dev@gmail.com - [jankazil.com](https://jankazil.com)
 ## License
 
 BSD 3-clause
-

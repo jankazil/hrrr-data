@@ -96,7 +96,7 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False) -> Path:
         Path: Local path of the downloaded file.
     """
 
-    print('Downloading from the NOAA HRRR S3 archive the file ', hrrr_file, flush=True)
+    print('Downloading from the NOAA HRRR S3 archive the file', hrrr_file, flush=True)
 
     # Create local directory unless it exists
     path = Path(local_dir)

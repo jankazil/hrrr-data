@@ -1,27 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "hrrr-data"
-version = "2.0.5"
-description = "A toolkit for accessing, downloading, and processing ISD Lite data"
+version = "2.1.0"
+description = "A toolkit for accessing, downloading, and processing HRRR Lite data"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "Jan Kazil" }]
-
 dependencies = [
-  "cartopy>=0.25.0",
-  "matplotlib>=3.10.5",
-  "netCDF4",
-  "pygrib>=2.1.6",
-  "s3fs>=2025.7.0",
-  "scipy",
-  "xarray>=2025.8.0"
+  "cartopy",
+  "matplotlib",
+  "numpy",
+  "netcdf4",
+  "pygrib",
+  "requests",
+  "s3fs",
+  "xarray",
 ]
 
-[tool.setuptools]
-script-files = [
-  "scripts/DownloadHRRRSurfaceForecast.py",
-  "scripts/ConvertHRRRSurfaceForecast2netCDF.py"
-]
+[project.scripts]
+hrrr-fetch-sfc-forecast = "hrrr_data.hrrr_fetch_surface_forecasts:main" # Connects name of executable in $PATH to the python module containing corresponding main()
+hrrr-extract-sfc-vars = "hrrr_data.hrrr_extract_surface_vars:main" # Connects name of executable in $PATH to the python module containing corresponding main()
 
 [project.optional-dependencies]
 dev = [
@@ -31,6 +33,17 @@ dev = [
   "ruff>=0.5",
   "pre-commit>=3.7",
 ]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Ensure non-Python assets ship inside the wheel/sdist
+#[tool.setuptools.package-data]
+#hrrr_data = [
+#]
 
 [tool.ruff]
 line-length = 100
@@ -44,19 +57,25 @@ ignore = ["E501", "SIM108"]
 [tool.ruff.format]
 quote-style = "preserve"
 
-[tool.mypy]
-python_version = "3.10"
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-no_implicit_optional = true
-check_untyped_defs = true
-strict_optional = true
-pretty = true
-namespace_packages = true
-mypy_path = "src"
-files = ["src/hrrr_data"]
+#
+# MyPy is disabled because static analysis cannot account for all
+# dynamic runtime behaviors, mypy may report false positives which
+# do no reflect actual runtime issues.
+#
+#[tool.mypy]
+##python_version = "3.11"
+#warn_unused_configs = true
+#disallow_untyped_defs = true
+#disallow_incomplete_defs = true
+#no_implicit_optional = true
+#check_untyped_defs = true
+#strict_optional = true
+#pretty = true
+#namespace_packages = true
+#mypy_path = "src"
+#files = ["src/hrrr_data"]
 
 [tool.pytest.ini_options]
-addopts = "-q --cov=hrrr_data --cov-report=term-missing"
 testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]

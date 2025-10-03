@@ -4,7 +4,7 @@ Tools for operations on files in GRIB and netCDF format.
 
 import subprocess
 from pathlib import Path
-
+import shutil
 import pygrib
 import xarray as xr
 
@@ -46,7 +46,11 @@ def grib2nc(grib_file: Path):
     Returns:
         Path: Local file path to a file in netCDF format.
     """
-
+    
+    if shutil.which("ncl_convert2nc") is None:
+        print("Warning: ncl_convert2nc is not available on PATH. Skipping conversion to netCDF.")
+        return
+        
     # Construct the command
 
     output_dir = grib_file.parent

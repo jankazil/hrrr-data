@@ -1,0 +1,16 @@
+name: lcd_data
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.11
+  - pip
+  - cartopy
+  - matplotlib
+  - netcdf4
+  - numpy
+  - pygrib
+  - requests
+  - s3fs
+  - xarray
+  - pip:
+      - git+https://github.com/jankazil/hrrr-data

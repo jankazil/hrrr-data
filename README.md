@@ -6,7 +6,7 @@ It provides:
 
 - Top level command-line tools that
   - Download HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, forecast valid hour, and region.
-  - Processes a single local HRRR GRIB2 file and writes a new netCDF file containing a selected set of variables.
+  - Extract a subset of commonly used surface variables from the GRIB2 files into netCDF files.
 
 - Modules for
   - Interacting with the NOAA HRRR S3 bucket and downloading HRRR forecast data

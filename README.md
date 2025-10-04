@@ -27,7 +27,7 @@ This repository provides two top-level CLI scripts for working with HRRR surface
 
 - **`hrrr-extract-sfc-vars`**: Process a single local HRRR GRIB2 file (previously downloaded) by converting it to netCDF and writing a new netCDF file that contains only a selected set of variables, with added long names and metadata attributes.
 
-Selected surface variables:
+Selected surface variables saved in netCDF files:
 
   - Air temperature at 2 m above ground
   - Dew point temperature at 2 m above ground
@@ -41,11 +41,13 @@ Selected surface variables:
 
 The typical workflow is:
 
-1. **Download forecast data** using `hrrr-fetch-sfc-forecast`, specifying the date range, initialization hour, valid hour, and region of interest. This fetches the GRIB2 files from the NOAA HRRR S3 bucket, stores them locally, and, if requested, processes them into netCDF files with selected surface variables.
+1. **Download forecast data** using `hrrr-fetch-sfc-forecast`, specifying the date range, initialization hour, valid hour, and region of interest. This fetches the GRIB2 files from the NOAA HRRR S3 bucket, stores them locally, and, if requested, extracts a selected surface variables into netCDF files.
 
-2. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a smaller set of variables for analysis.
+2. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a selected set of variables for analysis.
 
 3. **Work with the outputs** in standard netCDF format using your preferred scientific Python libraries (`xarray`, `netCDF4`, etc.), or integrate them into downstream machine learning and analytics workflows.
+
+**Note:** For the conversion from GRIB2 to netCDF, the tool `ncl_convert2nc` needs to be available in the system PATH.
 
 ## Command-line interface (CLI)
 

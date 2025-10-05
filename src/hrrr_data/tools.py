@@ -134,3 +134,58 @@ def nc2nc_extract_vars(
 
         # Write to output netCDF file, overwrite if it exists
         ds_subset.to_netcdf(out_file, mode='w')
+
+
+def extract_select_sfc_vars_to_netcdf(grib_file: Path) -> Path:
+    '''
+    Convert GRIB2 to netCDF and extract selected surface variables into a new file.
+
+    Returns the path to the netCDF file.
+    '''
+    VARIABLES = [
+        "TMP_P0_L103_GLC0",
+        "DPT_P0_L103_GLC0",
+        "RH_P0_L103_GLC0",
+        "UGRD_P0_L103_GLC0",
+        "VGRD_P0_L103_GLC0",
+        "APCP_P8_L1_GLC0_acc1h",
+    ]
+
+    LONG_NAMES = [
+        "Air temperature at 2 m above ground",
+        "Dew point temperature at 2 m above ground",
+        "Relative humidity at 2 m above ground",
+        "West-east wind speed",
+        "South-north wind speed",
+        "1 h accumulated precipitation",
+    ]
+
+    GLOBAL_ATTRS = {
+        "model": "HRRR",
+        "processed_with": "https://github.com/jankazil/hrrr-data",
+    }
+
+    # Convert the file from GRIB2 to netCDF
+    ncfile_full = grib2nc(grib_file)
+
+    # Name for file that will contain the selected variables
+    ncfile_new = ncfile_full
+
+    # Rename the full file to a temporary file
+    ncfile_tmp_name = str(ncfile_full.name) + '.tmp'
+    ncfile_tmp = ncfile_full.parent / Path(ncfile_tmp_name)
+    ncfile_full.replace(ncfile_tmp)
+
+    # Extract select variables
+
+    nc2nc_extract_vars(
+        ncfile_tmp,
+        ncfile_new,
+        VARIABLES,
+        long_names=LONG_NAMES,
+        global_attributes=GLOBAL_ATTRS,
+    )
+
+    ncfile_tmp.unlink()
+
+    return ncfile_new

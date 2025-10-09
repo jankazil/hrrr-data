@@ -32,10 +32,8 @@ Selected variables saved in netCDF files:
   - Air temperature at 2 m above ground
   - Dew point temperature at 2 m above ground
   - Relative humidity at 2 m above ground
-  - West-east wind speed at 10 m and 80 m above ground
-  - South-north wind speed at 10 m and 80 m above ground
+  - Wind speed at 10 m and 80 m above ground
   - 1 h accumulated precipitation
-  - Specified height level above ground
 
 ## Workflow
 

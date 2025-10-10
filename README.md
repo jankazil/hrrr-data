@@ -99,13 +99,13 @@ hrrr-extract-sfc-vars /path/to/file.grib2
 
 The tool produces a new netCDF file named `file.nc` with variables such as 2-m air temperature, 2-m dew point, relative humidity, wind components, and 1-hour accumulated precipitation, and adds global metadata identifying the processing.
 
-### hrrr_plot_singlelevel_conus
+### hrrr-plot-singlelevel-conus
 
 Create a plot of each single-level (2-D) HRRR variable in a netCDF file for CONUS and save one PNG per variable.
 
 **Usage:**
 ```bash
-hrrr_plot_singlelevel_conus /path/to/file.nc
+hrrr-plot-singlelevel-conus /path/to/file.nc
 ```
 
 **Arguments:**

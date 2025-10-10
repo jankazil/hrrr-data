@@ -38,6 +38,8 @@ The pre-defined variables extracted and saved in netCDF files are:
   - Wind speed at 10 m and 80 m above ground
   - 1 h accumulated precipitation
 
+**Note:** For the conversion from GRIB2 to netCDF, the tool `ncl_convert2nc` needs to be available in the system PATH.
+
 ## Workflow
 
 The typical workflow is:
@@ -47,8 +49,6 @@ The typical workflow is:
 2. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a set of pre-defined variables for analysis.
 
 3. **Work with the outputs** in standard netCDF format using your preferred scientific Python libraries (`xarray`, `netCDF4`, etc.), integrate them into downstream machine learning and analytics workflows, or plot the data using `hrrr-plot-singlelevel-conus`.
-
-**Note:** For the conversion from GRIB2 to netCDF, the tool `ncl_convert2nc` needs to be available in the system PATH.
 
 ## Command-line interface (CLI)
 
@@ -99,7 +99,7 @@ hrrr-extract-sfc-vars /path/to/file.grib2
 
 The tool produces a new netCDF file named `file.nc` with variables such as 2-m air temperature, 2-m dew point, relative humidity, wind components, and 1-hour accumulated precipitation, and adds global metadata identifying the processing.
 
-### hrrr-plot-singlelevel-conus
+### `hrrr-plot-singlelevel-conus`
 
 Create a plot of each single-level (2-D) HRRR variable in a netCDF file for CONUS and save one PNG per variable.
 
@@ -120,7 +120,7 @@ hrrr-plot-singlelevel-conus /path/to/file.nc
   
 **Example:**
 
-  Relative humidity at 2 m, 1 July 2025:
+  Relative humidity at 2 m forecast for 2025-07-01 20:00:00 UTC, 32 h forecast lead time:
 
 ![Relative humidity at 2 m, 1 July 2025](plots/hrrr.t12z.wrfsfcf32.RH_P0_L103_GLC0.png)  
 

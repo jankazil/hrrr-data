@@ -28,9 +28,9 @@ This repository provides the following top-level command-line interface (CLI) sc
 
 - **`hrrr-extract-sfc-vars`**: Process a single local HRRR GRIB2 file (previously downloaded) by converting it to netCDF and writing a new netCDF file that contains a pre-defined set of variables, with added long names and metadata attributes.
   
-- **`hrrr-plot-singlelevel-conus`**: Create a plot of every HRRR variable in the given netCDF file that has only the horizontal grid dimensions latitude and longitude, one PNG file per variable. Assumes that the netCDF file contains variables over CONUS.
+- **`hrrr-plot-singlelevel-conus`**: Create a plot of every HRRR variable that has only the horizontal grid dimensions latitude and longitude in a given HRRR netCDF file, one PNG file per variable. Assumes that the netCDF file contains variables over CONUS.
 
-The pre-defined variables saved in netCDF files are:
+The pre-defined variables extracted and saved in netCDF files are:
 
   - Air temperature at 2 m above ground
   - Dew point temperature at 2 m above ground
@@ -42,9 +42,9 @@ The pre-defined variables saved in netCDF files are:
 
 The typical workflow is:
 
-1. **Download forecast data** using `hrrr-fetch-sfc-forecast`, specifying the date range, initialization hour, valid hour, and region of interest. This fetches the GRIB2 files from the NOAA HRRR S3 bucket, stores them locally, and, if requested, extracts a selected variables into netCDF files.
+1. **Download forecast data** using `hrrr-fetch-sfc-forecast`, specifying the date range, initialization hour, valid hour, and region of interest. This fetches the GRIB2 files from the NOAA HRRR S3 bucket, stores them locally, and, if requested, extracts pre-defined variables into netCDF files.
 
-2. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a selected set of variables for analysis.
+2. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a set of pre-defined variables for analysis.
 
 3. **Work with the outputs** in standard netCDF format using your preferred scientific Python libraries (`xarray`, `netCDF4`, etc.), integrate them into downstream machine learning and analytics workflows, or plot the data using `hrrr-plot-singlelevel-conus`.
 
@@ -135,7 +135,7 @@ hrrr_plot_singlelevel_conus /path/to/file.nc
 - **`tools.py`**: Utilities for working with HRRR data in GRIB2 and netCDF formats, including:
   - Listing variables in GRIB2 files (`pygrib`)
   - Converting GRIB2 files to netCDF using `ncl_convert2nc`
-  - Extracting selected variables from netCDF files using `xarray`
+  - Extracting pre-defined variables from netCDF files using `xarray`
   - Retrieving the metadata for a HRRR file in S3
 
 - **`plotting`**: Utilities for plotting HRRR data.

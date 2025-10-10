@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hrrr-data"
-version = "2.1.3"
+version = "2.1.4"
 description = "A toolkit for accessing, downloading, and processing HRRR Lite data"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,6 +24,7 @@ dependencies = [
 [project.scripts]
 hrrr-fetch-sfc-forecast = "hrrr_data.hrrr_fetch_surface_forecasts:main" # Connects name of executable in $PATH to the python module containing corresponding main()
 hrrr-extract-sfc-vars = "hrrr_data.hrrr_extract_surface_vars:main" # Connects name of executable in $PATH to the python module containing corresponding main()
+hrrr-plot-singlelevel-conus = "hrrr_data.hrrr_plot_singlelevel_conus:main" # Connects name of executable in $PATH to the python module containing corresponding main()
 
 [project.optional-dependencies]
 dev = [

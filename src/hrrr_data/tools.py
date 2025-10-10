@@ -2,11 +2,11 @@
 Tools for operations on files in GRIB and netCDF format.
 """
 
-import numpy as np
 import shutil
 import subprocess
 from pathlib import Path
 
+import numpy as np
 import pygrib
 import xarray as xr
 
@@ -140,12 +140,12 @@ def nc2nc_extract_vars(
 def nc2nc_process_wind_speed(nc_file: Path):
     """
     If the given file in netCDF format contains the variables
-    
+
       UGRD_P0_L103_GLC0 (west-east wind speed)
       VGRD_P0_L103_GLC0 (south-north wind speed)
-    
+
     then
-    
+
     - the horizontal wind speed is calculated at all levels for which UGRD_P0_L103_GLC0 and VGRD_P0_L103_GLC0 are defined
     - UGRD_P0_L103_GLC0 and VGRD_P0_L103_GLC0 are removed from the netCDF file,
     - the horizontal wind speed is saved in the netCDF file, one variable per level,
@@ -156,80 +156,90 @@ def nc2nc_process_wind_speed(nc_file: Path):
         nc_file (Path):
             File in netCDF format.
     """
-    
+
     # Wind speed variables
-    
+
     u_var = 'UGRD_P0_L103_GLC0'
     v_var = 'VGRD_P0_L103_GLC0'
-    
-    variables = [u_var,v_var]
-    
+
+    variables = [u_var, v_var]
+
     # Altitude dimension of wind speed variables
-    
+
     alt_dim = 'lv_HTGL2'
-    
+
     # Open the file
 
     with xr.open_dataset(nc_file) as ds_:
-        
-        ds = ds_.load() # Load all data from disk into memory
-        
+        ds = ds_.load()  # Load all data from disk into memory
+
         ds_.close()
-    
+
     # Check if wind speed variables are missing
-    
+
     missing_vars = [var for var in variables if var not in ds.variables]
-    
+
     if missing_vars:
         # Do nothing and return.
         return
 
     # Calculate horizontal wind speed
-    wind_speed = np.sqrt(ds[u_var]**2 + ds[v_var]**2)
-    
+    wind_speed = np.sqrt(ds[u_var] ** 2 + ds[v_var] ** 2)
+
     if alt_dim in wind_speed.dims:
-        
         for alt_i in range(ds.sizes[alt_dim]):
-            
             alt_string_int = str(int(np.round(ds[alt_dim][alt_i].item())))
-            alt_string_float = str(np.round(ds[alt_dim][alt_i].item(),3))
-            
+            alt_string_float = str(np.round(ds[alt_dim][alt_i].item(), 3))
+
             ds['WS' + alt_string_int] = wind_speed.isel({alt_dim: alt_i})
-            
+
             ds['WS' + alt_string_int].attrs['initial_time'] = ds[u_var].attrs['initial_time']
-            ds['WS' + alt_string_int].attrs['forecast_time_units'] = ds[u_var].attrs['forecast_time_units']
+            ds['WS' + alt_string_int].attrs['forecast_time_units'] = ds[u_var].attrs[
+                'forecast_time_units'
+            ]
             ds['WS' + alt_string_int].attrs['forecast_time'] = ds[u_var].attrs['forecast_time']
             ds['WS' + alt_string_int].attrs['level_type'] = ds[u_var].attrs['level_type']
-            ds['WS' + alt_string_int].attrs['parameter_template_discipline_category_number'] = ds[u_var].attrs['parameter_template_discipline_category_number']
-            ds['WS' + alt_string_int].attrs['parameter_discipline_and_category'] = ds[u_var].attrs['parameter_discipline_and_category']
+            ds['WS' + alt_string_int].attrs['parameter_template_discipline_category_number'] = ds[
+                u_var
+            ].attrs['parameter_template_discipline_category_number']
+            ds['WS' + alt_string_int].attrs['parameter_discipline_and_category'] = ds[u_var].attrs[
+                'parameter_discipline_and_category'
+            ]
             ds['WS' + alt_string_int].attrs['grid_type'] = ds[u_var].attrs['grid_type']
             ds['WS' + alt_string_int].attrs['units'] = ds[u_var].attrs['units']
-            ds['WS' + alt_string_int].attrs['long_name'] = 'Horizontal wind speed at ' +  alt_string_float + ' ' + ds[alt_dim].attrs['units']
-            ds['WS' + alt_string_int].attrs['production_status'] = ds[u_var].attrs['production_status']
+            ds['WS' + alt_string_int].attrs['long_name'] = (
+                'Horizontal wind speed at ' + alt_string_float + ' ' + ds[alt_dim].attrs['units']
+            )
+            ds['WS' + alt_string_int].attrs['production_status'] = ds[u_var].attrs[
+                'production_status'
+            ]
             ds['WS' + alt_string_int].attrs['center'] = ds[u_var].attrs['center']
-            
+
     else:
-        
         ds['WS'] = wind_speed
-        
+
         ds['WS'].attrs['initial_time'] = ds[u_var].attrs['initial_time']
         ds['WS'].attrs['forecast_time_units'] = ds[u_var].attrs['forecast_time_units']
         ds['WS'].attrs['forecast_time'] = ds[u_var].attrs['forecast_time']
         ds['WS'].attrs['level_type'] = ds[u_var].attrs['level_type']
-        ds['WS'].attrs['parameter_template_discipline_category_number'] = ds[u_var].attrs['parameter_template_discipline_category_number']
-        ds['WS'].attrs['parameter_discipline_and_category'] = ds[u_var].attrs['parameter_discipline_and_category']
+        ds['WS'].attrs['parameter_template_discipline_category_number'] = ds[u_var].attrs[
+            'parameter_template_discipline_category_number'
+        ]
+        ds['WS'].attrs['parameter_discipline_and_category'] = ds[u_var].attrs[
+            'parameter_discipline_and_category'
+        ]
         ds['WS'].attrs['grid_type'] = ds[u_var].attrs['grid_type']
         ds['WS'].attrs['units'] = ds[u_var].attrs['units']
         ds['WS'].attrs['long_name'] = 'Horizontal wind speed'
         ds['WS'].attrs['production_status'] = ds[u_var].attrs['production_status']
         ds['WS'].attrs['center'] = ds[u_var].attrs['center']
-            
+
     # Remove original wind speed variables
     ds = ds.drop_vars(variables)
-    
+
     # Write to output netCDF file, overwrite if it exists
     ds.to_netcdf(nc_file)
-    
+
     return
 
 
@@ -282,9 +292,9 @@ def extract_select_sfc_vars_to_netcdf(grib_file: Path) -> Path:
         long_names=LONG_NAMES,
         global_attributes=GLOBAL_ATTRS,
     )
-    
+
     # Process wind speed
-    
+
     nc2nc_process_wind_speed(ncfile_new)
 
     ncfile_tmp.unlink()

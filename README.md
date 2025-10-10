@@ -4,9 +4,10 @@
 
 It provides:
 
-- Top level command-line tools that
+- Top-level command-line tools that
   - Download HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, forecast valid hour, and region.
   - Extract a subset of commonly used variables from the GRIB2 files into netCDF files.
+  - Plot single-level (2-D) HRRR variables over CONUS (the contiguous U.S.)
 
 - Modules for
   - Interacting with the NOAA HRRR S3 bucket and downloading HRRR forecast data
@@ -21,13 +22,15 @@ pip install git+https://github.com/jankazil/hrrr-data
 
 ## Overview
 
-This repository provides two top-level CLI scripts for working with HRRR surface forecasts:
+This repository provides the following top-level command-line interface (CLI) scripts for working with HRRR surface forecasts:
 
-- **`hrrr-fetch-sfc-forecast`**: Download HRRR surface forecast GRIB2 files for a given date range, initialization hour, valid hour, and region from the NOAA S3 bucket. If requested, a subset of commonly used variables (temperature, humidity, wind, precipitation) is extracted into a netCDF file. Both the GRIB2 and the processed netCDF files are stored locally.
+- **`hrrr-fetch-sfc-forecast`**: Download HRRR surface forecast GRIB2 files for a given date range, initialization hour, valid hour, and region from the NOAA S3 bucket. If requested, a subset of pre-defined variables (temperature, humidity, wind speed, precipitation) is extracted into a netCDF file. Both the GRIB2 and the processed netCDF files are stored locally.
 
-- **`hrrr-extract-sfc-vars`**: Process a single local HRRR GRIB2 file (previously downloaded) by converting it to netCDF and writing a new netCDF file that contains only a selected set of variables, with added long names and metadata attributes.
+- **`hrrr-extract-sfc-vars`**: Process a single local HRRR GRIB2 file (previously downloaded) by converting it to netCDF and writing a new netCDF file that contains a pre-defined set of variables, with added long names and metadata attributes.
+  
+- **`hrrr-plot-singlelevel-conus`**: Create a plot of every HRRR variable in the given netCDF file that has only the horizontal grid dimensions latitude and longitude, one PNG file per variable. Assumes that the netCDF file contains variables over CONUS.
 
-Selected variables saved in netCDF files:
+The pre-defined variables saved in netCDF files are:
 
   - Air temperature at 2 m above ground
   - Dew point temperature at 2 m above ground
@@ -43,7 +46,7 @@ The typical workflow is:
 
 2. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a selected set of variables for analysis.
 
-3. **Work with the outputs** in standard netCDF format using your preferred scientific Python libraries (`xarray`, `netCDF4`, etc.), or integrate them into downstream machine learning and analytics workflows.
+3. **Work with the outputs** in standard netCDF format using your preferred scientific Python libraries (`xarray`, `netCDF4`, etc.), integrate them into downstream machine learning and analytics workflows, or plot the data using `hrrr-plot-singlelevel-conus`.
 
 **Note:** For the conversion from GRIB2 to netCDF, the tool `ncl_convert2nc` needs to be available in the system PATH.
 
@@ -96,6 +99,32 @@ hrrr-extract-sfc-vars /path/to/file.grib2
 
 The tool produces a new netCDF file named `file.nc` with variables such as 2-m air temperature, 2-m dew point, relative humidity, wind components, and 1-hour accumulated precipitation, and adds global metadata identifying the processing.
 
+### hrrr_plot_singlelevel_conus
+
+Create a plot of each single-level (2-D) HRRR variable in a netCDF file for CONUS and save one PNG per variable.
+
+**Usage:**
+```bash
+hrrr_plot_singlelevel_conus /path/to/file.nc
+```
+
+**Arguments:**
+- `file.nc`: Path to a local HRRR netCDF file containing single-level variables on the HRRR grid (expects coordinates `gridlat_0` and `gridlon_0`, and variables with dimensions exactly `('ygrid_0', 'xgrid_0')`).
+
+**Output:**
+- One PNG per qualifying variable, saved alongside the input file and named:
+  ```
+  file.<variable_name>.png
+  ```
+  Each figure is a Lambert Conformal CONUS map with a colorbar labeled from the variable’s `long_name` and `units` attributes. Variables that do not match the required 2-D grid shape are skipped.
+  
+**Example:**
+
+  Relative humidity at 2 m, 1 July 2025:
+
+![Relative humidity at 2 m, 1 July 2025](plots/hrrr.t12z.wrfsfcf32.RH_P0_L103_GLC0.png)  
+
+
 ## Modules
 
 - **`s3.py`**: Functions for interacting with the NOAA HRRR S3 bucket, including:
@@ -120,7 +149,6 @@ The `demos` directory provides example scripts demonstrating individual operatio
 - `demo_s3_download_date_range.py`: Download GRIB2 files for a given date range.
 - `demo_tools_grib_list_vars.py`: List variables in a GRIB2 file.
 - `demo_tools_grib2nc.py`: Convert a GRIB2 file to netCDF.
-- `demo_tools_nc2nc_extract_vars.py`: Extract a subset of variables from an existing netCDF file.
 - `demo_s3_info.py`: Retrieve and display S3 object metadata.
 
 ## Development

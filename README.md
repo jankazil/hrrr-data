@@ -38,8 +38,6 @@ The pre-defined variables extracted and saved in netCDF files are:
   - Wind speed at 10 m and 80 m above ground
   - 1 h accumulated precipitation
 
-**Note:** For the conversion from GRIB2 to netCDF, the tool `ncl_convert2nc` needs to be available in the system PATH.
-
 ## Workflow
 
 The typical workflow is:

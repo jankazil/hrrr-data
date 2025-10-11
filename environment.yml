@@ -6,6 +6,7 @@ dependencies:
   - pip
   - cartopy
   - matplotlib
+  - ncl
   - netcdf4
   - numpy
   - pygrib

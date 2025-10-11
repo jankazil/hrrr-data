@@ -1,4 +1,4 @@
-name: lcd_data
+name: hrrr_data
 channels:
   - conda-forge
 dependencies:

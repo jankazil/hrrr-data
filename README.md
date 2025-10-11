@@ -17,7 +17,7 @@ It provides:
 ## Installation (Linux / macOS)
 
 ```bash
-pip install git+https://github.com/jankazil/hrrr-data
+mamba install -c jan.kazil -c conda-forge hrrr-data
 ```
 
 ## Overview

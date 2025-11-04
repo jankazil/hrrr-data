@@ -23,6 +23,22 @@ export LICENSE_ID="BSD-3-Clause"
 
 PYPROJECT="${PYPROJECT:-pyproject.toml}"
 
+# Python version from the line with requires-python and parse one version pattern (e.g. 3.10, 3.11.8)
+
+PYTHON_VERSION=$(
+  grep -E '^[[:space:]]*requires-python[[:space:]]*=' "$PYPROJECT" \
+  | sed -E 's/.*requires-python[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/' \
+  | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' \
+  | head -n 1
+)
+
+if [[ -z "$PYTHON_VERSION" ]]; then
+  echo "Error: Could not extract Python version from $PYPROJECT" >&2
+  exit 1
+fi
+
+echo "Using Python ${PYTHON_VERSION} for build and upload"
+
 CODE_NAME=""
 CODE_TAG=""
 SUMMARY=""
@@ -233,7 +249,7 @@ EOF
 # 3) Prepare a dedicated build environment
 #
 
-mamba create -y -n conda-build -c conda-forge conda-build anaconda-client
+mamba create -y -n conda-build -c conda-forge python=${PYTHON_VERSION} conda-build anaconda-client
 conda activate conda-build
 conda build --version
 
@@ -241,7 +257,7 @@ conda build --version
 # 4) Build the package
 #
 
-conda build -c conda-forge recipe
+conda build -c conda-forge --python "${PYTHON_VERSION}" recipe
 
 # Optional - List the produced artifacts
 

@@ -25,19 +25,55 @@ PYPROJECT="${PYPROJECT:-pyproject.toml}"
 
 # Python version from the line with requires-python and parse one version pattern (e.g. 3.10, 3.11.8)
 
-PYTHON_VERSION=$(
+PYTHON_SPEC=$(
   grep -E '^[[:space:]]*requires-python[[:space:]]*=' "$PYPROJECT" \
-  | sed -E 's/.*requires-python[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/' \
-  | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' \
-  | head -n 1
+  | sed -E 's/.*requires-python[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/'
 )
 
-if [[ -z "$PYTHON_VERSION" ]]; then
-  echo "Error: Could not extract Python version from $PYPROJECT" >&2
+# Validate the requires-python specification
+if [[ -z "$PYTHON_SPEC" ]]; then
+  echo "Error: Could not find requires-python field in $PYPROJECT" >&2
   exit 1
 fi
 
-echo "Using Python ${PYTHON_VERSION} for build and upload"
+# Reject if it contains a wildcard
+if grep -q '\*' <<< "$PYTHON_SPEC"; then
+  echo "Error: requires-python in $PYPROJECT contains wildcard (*) which makes the version specification ambiguous: $PYTHON_SPEC" >&2
+  exit 1
+fi
+
+# Reject if it contains a standalone < operator
+if grep -Eq '(^|[^<>=])<[^=]' <<< "$PYTHON_SPEC"; then
+  echo "Error: requires-python in $PYPROJECT contains standalone < operator which makes the version specification ambiguous: $PYTHON_SPEC" >&2
+  exit 1
+fi
+
+# Reject if it contains a standalone > operator
+if grep -Eq '(^|[^<>=])>[^=]' <<< "$PYTHON_SPEC"; then
+  echo "Error: requires-python in $PYPROJECT contains standalone > operator which makes the version specification ambiguous: $PYTHON_SPEC" >&2
+  exit 1
+fi
+
+# Require at least one of the explicit operators ==, >=, <=
+if ! grep -Eq '([><=]=)' <<< "$PYTHON_SPEC"; then
+  echo "Error: requires-python in $PYPROJECT must use at least one of the operators ==, >=, or <=: $PYTHON_SPEC" >&2
+  exit 1
+fi
+
+# Remove excluded versions (using !=)
+CLEAN_SPEC=$(sed -E 's/(^|,)[[:space:]]*!=[^,"]+//g; s/^[[:space:],]+//; s/[[:space:],]+$//' <<< "$PYTHON_SPEC")
+
+# Extract the first numeric version that appears
+PYTHON_VERSION=$(grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' <<< "$CLEAN_SPEC" | head -n 1)
+
+if [[ -z "$PYTHON_VERSION" ]]; then
+  echo "Error: Could not extract a valid Python version from requires-python specification in $PYPROJECT: $PYTHON_SPEC" >&2
+  exit 1
+fi
+
+echo "Using Python ${PYTHON_VERSION} to create package."
+
+# Further metadata
 
 CODE_NAME=""
 CODE_TAG=""
@@ -153,10 +189,10 @@ echo "REPO_URL=$REPO_URL"
 echo "DEPENDENCIES=$DEPENDENCIES"
 
 echo ""
-read -p "This script will attempt to create a conda package and upload it to anaconda.org. Continue (y/n)? "
+read -p "This script will attempt to create a conda package and upload it to anaconda.org. Continue (Y/n)? "
 echo ""
 
-if [[  $REPLY != "y" ]] ; then
+if [[  $REPLY != "Y" ]] ; then
   echo "Nothing done."
   exit
 fi
@@ -286,10 +322,10 @@ find "$BLD_DIR" -maxdepth 2 -type f \( -name "${CODE_NAME}-*.conda" -o -name "${
 # Upload the noarch build to your user channel
 
 echo ""
-read -p "Upload to anaconda.org (y/n)? "
+read -p "Upload to anaconda.org (Y/n)? "
 echo ""
 
-if [[  $REPLY != "y" ]] ; then
+if [[  $REPLY != "Y" ]] ; then
   echo "Nothing done."
   exit
 fi

@@ -252,40 +252,46 @@ source:
   git_url: {{ repo }}
   git_rev: {{ version }}
 
-build:
-  noarch: python
-  number: 0
-  script: $PYTHON -m pip install . -vv
-
-requirements:
-  host:
-    - python
-    - pip
-    - setuptools
-    - wheel
-  run:
+outputs:
+  - name: {{ name }}
+    build:
+      noarch: python
+      number: 0
+      script: |
+        set -eux
+        $PYTHON -m pip install . -vv --no-build-isolation
+    requirements:
+      build:
+        - python
+        - pip
+        - setuptools >=77
+        - wheel
+      host:
+        - python
+        - pip
+        - setuptools >=77
+        - wheel
+      run:
 {% for dep in deps %}
-    - {{ dep }}
+        - {{ dep }}
 {% endfor %}
-
-test:
-  commands:
-    - python -c "import {{ import_name }} as _m; import importlib.metadata as m; print('OK', m.version('{{ name }}')); print('Import:', _m.__name__)"
-  imports:
-    - {{ import_name }}
-
-about:
-  home: {{ repo }}
-  summary: {{ summary }}
-  license: {{ license_id }}
-  license_file: LICENSE
+    test:
+      commands:
+        - python -c "import {{ import_name }} as _m; import importlib.metadata as m; print('OK', m.version('{{ name }}')); print('Import:', _m.__name__)"
+      imports:
+        - {{ import_name }}
+    about:
+      home: {{ repo }}
+      summary: {{ summary }}
+      license: {{ license_id }}
+      license_file: LICENSE
 EOF
 
 #
 # 3) Prepare a dedicated build environment
 #
 
-mamba create -y -n conda-build -c conda-forge python=${PYTHON_VERSION} conda-build anaconda-client
+mamba create -y -n conda-build -c conda-forge python=${PYTHON_VERSION} conda-build conda-verify anaconda-client
 conda activate conda-build
 conda build --version
 

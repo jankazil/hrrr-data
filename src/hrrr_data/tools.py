@@ -34,7 +34,7 @@ def grib_list_vars(file: Path) -> dict[str, str]:
     return vars
 
 
-def grib2nc(grib_file: Path):
+def grib2nc(grib_file: Path, verbose: bool = False):
     """
     Converts a file in GRIB format to a file in netCDF format.
 
@@ -44,6 +44,7 @@ def grib2nc(grib_file: Path):
 
     Args:
         grib_file (Path): Local file path to a file in GRIB format.
+        verbose (bool, optional): If True, print detailed progress information to stdout. Defaults to False.
 
     Returns:
         Path: Local file path to a file in netCDF format.
@@ -65,15 +66,16 @@ def grib2nc(grib_file: Path):
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     # Print output
-    print()
-    print('running ncl_convert2nc to produce the file')
-    print()
-    print(str(output_file))
-    print()
-    if result.stdout != '':
-        print(result.stdout)
-    if result.stderr != '':
-        print(result.stderr)
+    if verbose:
+        print()
+        print('running ncl_convert2nc to produce the file')
+        print()
+        print(str(output_file))
+        print()
+        if result.stdout != '':
+            print(result.stdout)
+        if result.stderr != '':
+            print(result.stderr)
 
     return output_file
 
@@ -243,7 +245,7 @@ def nc2nc_process_wind_speed(nc_file: Path):
     return
 
 
-def extract_select_sfc_vars_to_netcdf(grib_file: Path) -> Path:
+def extract_select_sfc_vars_to_netcdf(grib_file: Path, verbose: bool = False) -> Path:
     '''
     Convert GRIB2 to netCDF and extract selected surface variables into a new file.
 
@@ -273,7 +275,7 @@ def extract_select_sfc_vars_to_netcdf(grib_file: Path) -> Path:
     }
 
     # Convert the file from GRIB2 to netCDF
-    ncfile_full = grib2nc(grib_file)
+    ncfile_full = grib2nc(grib_file, verbose=verbose)
 
     # Name for file that will contain the selected variables
     ncfile_new = ncfile_full

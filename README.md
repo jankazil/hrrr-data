@@ -14,7 +14,7 @@ It provides:
   - Working with HRRR data in GRIB2 and netCDF formats
   - Plotting HRRR data
 
-## Installation (Linux / macOS)
+## Installation
 
 ```bash
 mamba install -c jan.kazil -c conda-forge hrrr-data
@@ -124,6 +124,8 @@ hrrr-plot-singlelevel-conus /path/to/file.nc
 
 
 ## Modules
+
+- **`hrrr_fetch_surface_forecasts.py`**: Provides the run_fetch() function for programmatic use, allowing Python scripts to download HRRR surface forecast GRIB2 files from NOAA’s S3 archive over a specified date range and configuration, and optionally extract selected surface variables into netCDF files for further analysis.
 
 - **`s3.py`**: Functions for interacting with the NOAA HRRR S3 bucket, including:
   - Listing available files via direct path matching or wildcard-style expressions

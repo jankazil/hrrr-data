@@ -5,7 +5,7 @@
 It provides:
 
 - Top-level command-line tools that
-  - Download HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization hour, forecast valid hour, and region.
+  - Download HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization time, forecast lead time, and region.
   - Extract a subset of commonly used variables from the GRIB2 files into netCDF files.
   - Plot single-level (2-D) HRRR variables over CONUS (the contiguous U.S.)
 
@@ -24,7 +24,7 @@ mamba install -c jan.kazil -c conda-forge hrrr-data
 
 This repository provides the following top-level command-line interface (CLI) scripts for working with HRRR surface forecasts:
 
-- **`hrrr-fetch-sfc-forecast`**: Download HRRR surface forecast GRIB2 files for a given date range, initialization hour, valid hour, and region from the NOAA S3 bucket. If requested, a subset of pre-defined variables (temperature, humidity, wind speed, precipitation) is extracted into a netCDF file. Both the GRIB2 and the processed netCDF files are stored locally.
+- **`hrrr-fetch-sfc-forecast`**: Download HRRR surface forecast GRIB2 files for a given date range, initialization hour, forecast lead time, and region from the NOAA S3 bucket. If requested, a subset of pre-defined variables (temperature, humidity, wind speed, precipitation) is extracted into a netCDF file. Both the GRIB2 and the processed netCDF files are stored locally.
 
 - **`hrrr-extract-sfc-vars`**: Process a single local HRRR GRIB2 file (previously downloaded) by converting it to netCDF and writing a new netCDF file that contains a pre-defined set of variables, with added long names and metadata attributes.
   
@@ -42,7 +42,7 @@ The pre-defined variables extracted and saved in netCDF files are:
 
 The typical workflow is:
 
-1. **Download forecast data** using `hrrr-fetch-sfc-forecast`, specifying the date range, initialization hour, valid hour, and region of interest. This fetches the GRIB2 files from the NOAA HRRR S3 bucket, stores them locally, and, if requested, extracts pre-defined variables into netCDF files.
+1. **Download forecast data** using `hrrr-fetch-sfc-forecast`, specifying the date range, initialization hour, forecast lead time, and region of interest. This fetches the GRIB2 files from the NOAA HRRR S3 bucket, stores them locally, and, if requested, extracts pre-defined variables into netCDF files.
 
 2. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a set of pre-defined variables for analysis.
 
@@ -52,35 +52,43 @@ The typical workflow is:
 
 ### `hrrr-fetch-sfc-forecast`
 
-Download HRRR surface forecast GRIB2 files and extract the variables list in Section "Overview" into a netCDF file.
+Download HRRR surface forecast GRIB2 files from the NOAA S3 archive and optionally extract selected surface variables into netCDF files.
 
 **Usage:**
 
 ```bash
-hrrr-fetch-sfc-forecast START_YEAR START_MONTH START_DAY END_YEAR END_MONTH END_DAY INIT_HOUR VALID_HOUR REGION DATA_DIR [-n N_JOBS] [-e]
+hrrr-fetch-sfc-forecast START_YEAR START_MONTH START_DAY END_YEAR END_MONTH END_DAY FORECAST_INIT_HOUR FORECAST_LEAD_HOUR REGION DATA_DIR [-n N_JOBS] [-e] [-r] [-v]
 ```
 
 **Arguments:**
 
-- `START_YEAR START_MONTH START_DAY`: beginning of date range.
-- `END_YEAR END_MONTH END_DAY`: end of date range.
-- `INIT_HOUR`: forecast initialization hour (UTC).
-- `VALID_HOUR`: forecast valid hour.
-- `REGION`: HRRR region (e.g. `conus`).
-- `DATA_DIR`: local directory into which HRRR forecast files will be downloaded.
-- `-n N_JOBS`: optional, number of parallel downloads.
-- `-e`: optional, extract a subset of commonly used variables (temperature, humidity, wind, precipitation) into a netCDF file
+- `START_YEAR START_MONTH START_DAY`: beginning of date range  
+- `END_YEAR END_MONTH END_DAY`: end of date range  
+- `FORECAST_INIT_HOUR`: forecast initialization hour (UTC)  
+- `FORECAST_LEAD_HOUR`: forecast lead time in hours  
+- `REGION`: HRRR region (e.g. `conus`)  
+- `DATA_DIR`: local directory into which HRRR forecast files will be downloaded  
 
-`<DATA_DIR>` will contain paths/files with the naming convention
+**Options:**
 
-  `hrrr.<YYYYMMDD>/<HRRR region tag>/hrrr.t<II>z.wrfsfcf<FF>.grib2`  
-  `hrrr.<YYYYMMDD>/<HRRR region tag>/hrrr.t<II>z.wrfsfcf<FF>.nc`  
+- `-n N_JOBS, --n N_JOBS`: number of parallel download processes  
+- `-e, --extract`: extract selected surface variables (temperature, humidity, wind, precipitation) into a netCDF file  
+- `-r, --refresh`: download and process files even if they already exist in the data directory  
+- `-v, --verbose`: print detailed progress information  
 
-where  
+Downloaded and processed files follow the naming convention:
 
-- YYYYMMDD is the year, month, and day
-- II is the initialization hour
-- FF is the forecast lead time in hours
+```
+hrrr.<YYYYMMDD>/<HRRR region tag>/hrrr.t<II>z.wrfsfcf<FF>.grib2  
+hrrr.<YYYYMMDD>/<HRRR region tag>/hrrr.t<II>z.wrfsfcf<FF>.nc
+```
+
+where:
+
+- `YYYYMMDD` is the year, month, and day  
+- `II` is the initialization hour  
+- `FF` is the forecast lead time in hours
+
 
 ### `hrrr-extract-sfc-vars`
 

@@ -97,9 +97,6 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False, verbose: bo
         Path: Local path of the downloaded file.
     """
 
-    if verbose:
-        print('Downloading from the NOAA HRRR S3 archive the file', hrrr_file, flush=True)
-
     # Create local directory unless it exists
     path = Path(local_dir)
     path.mkdir(parents=True, exist_ok=True)
@@ -125,6 +122,9 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False, verbose: bo
                     flush=True,
                 )
             return local_file
+
+    if verbose:
+        print('Downloading from the NOAA HRRR S3 archive the file', local_file, flush=True)
 
     # Download the file from S3
     fs = s3fs.S3FileSystem(anon=True)
@@ -184,7 +184,7 @@ def download_threaded(
                 local_file = future.result()
                 local_files.append(local_file)
             except Exception as exc:
-                print(f"Download generated an exception: {exc}")
+                print(f"Download generated an exception: {exc}", flush=True)
 
     return local_files
 

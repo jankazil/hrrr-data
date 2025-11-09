@@ -1,6 +1,6 @@
-"""
+'''
 Tools for operations on files in GRIB and netCDF format.
-"""
+'''
 
 import shutil
 import subprocess
@@ -12,7 +12,7 @@ import xarray as xr
 
 
 def grib_list_vars(file: Path) -> dict[str, str]:
-    """
+    '''
     Returns variable names and their descriptive names as found in a GRIB file.
 
     Args:
@@ -20,7 +20,7 @@ def grib_list_vars(file: Path) -> dict[str, str]:
 
     Returns:
         dict [str,str]: Dictionary of variable names and their descriptive names
-    """
+    '''
 
     vars = {}  # A dictionary mapping the variables -> descriptive names
 
@@ -35,10 +35,10 @@ def grib_list_vars(file: Path) -> dict[str, str]:
 
 
 def grib2nc(grib_file: Path, verbose: bool = False):
-    """
+    '''
     Converts a file in GRIB format to a file in netCDF format.
 
-    For simplicity, we use an external tool, ncl_convert2nc, which must be installed on the host system.
+    For simplicity, an external tool is used, ncl_convert2nc, which must be installed on the host system.
 
     If the file in netCDF format exists, it will be overwritten.
 
@@ -48,10 +48,13 @@ def grib2nc(grib_file: Path, verbose: bool = False):
 
     Returns:
         Path: Local file path to a file in netCDF format.
-    """
+    '''
 
     if shutil.which("ncl_convert2nc") is None:
-        print("Warning: ncl_convert2nc is not available on PATH. Skipping conversion to netCDF.")
+        print(
+            "Warning: ncl_convert2nc is not available on PATH. Skipping conversion to netCDF.",
+            flush=True,
+        )
         return
 
     # Construct the command
@@ -67,15 +70,15 @@ def grib2nc(grib_file: Path, verbose: bool = False):
 
     # Print output
     if verbose:
-        print()
-        print('running ncl_convert2nc to produce the file')
-        print()
-        print(str(output_file))
-        print()
+        print(flush=True)
+        print('running ncl_convert2nc to produce the file', flush=True)
+        print(flush=True)
+        print(str(output_file), flush=True)
+        print(flush=True)
         if result.stdout != '':
-            print(result.stdout)
+            print(result.stdout, flush=True)
         if result.stderr != '':
-            print(result.stderr)
+            print(result.stderr, flush=True)
 
     return output_file
 
@@ -87,7 +90,7 @@ def nc2nc_extract_vars(
     long_names: list[str | None] | None = None,
     global_attributes: dict[str, str | None] | None = None,
 ):
-    """
+    '''
     Extracts given variables from a file in netCDF format and saves them in a file in netCDF format.
 
     Arguments
@@ -106,7 +109,7 @@ def nc2nc_extract_vars(
             Global attributes to set in the output dataset. Keys are attribute names and
             values are attribute values. A value of None leaves that attribute unchanged.
             Defaults to None.
-    """
+    '''
 
     # Open the file
 
@@ -140,7 +143,7 @@ def nc2nc_extract_vars(
 
 
 def nc2nc_process_wind_speed(nc_file: Path):
-    """
+    '''
     If the given file in netCDF format contains the variables
 
       UGRD_P0_L103_GLC0 (west-east wind speed)
@@ -157,7 +160,7 @@ def nc2nc_process_wind_speed(nc_file: Path):
     ---------
         nc_file (Path):
             File in netCDF format.
-    """
+    '''
 
     # Wind speed variables
 
@@ -245,12 +248,34 @@ def nc2nc_process_wind_speed(nc_file: Path):
     return
 
 
-def extract_select_sfc_vars_to_netcdf(grib_file: Path, verbose: bool = False) -> Path:
+def extract_select_sfc_vars_to_netcdf(
+    grib_file: Path, refresh: bool = True, verbose: bool = False
+) -> Path:
     '''
-    Convert GRIB2 to netCDF and extract selected surface variables into a new file.
+    Convert a GRIB file to a netCDF file containing only selected surface meteorological variables.
 
-    Returns the path to the netCDF file.
+    This function first checks whether a processed netCDF file already exists for the given GRIB input.
+    If not, or if reprocessing is requested, it converts the GRIB file to netCDF format, extracts key
+    near-surface variables such as temperature, dew point, humidity, wind components, and precipitation,
+    adds descriptive metadata, computes derived wind speed fields, and writes the results to a new
+    netCDF file in the same directory.
+
+    Parameters
+    ----------
+    grib_file : Path
+        Path to the input GRIB file containing HRRR model output.
+    refresh : bool, optional
+        If True, convert the GRIB file and extract variables even if a corresponding netCDF file already exists.
+        Default is True.
+    verbose : bool, optional
+        If True, print progress messages during processing. Default is False.
+
+    Returns
+    -------
+    Path
+        Path to the resulting netCDF file containing the selected surface variables.
     '''
+
     VARIABLES = [
         "TMP_P0_L103_GLC0",
         "DPT_P0_L103_GLC0",
@@ -274,31 +299,50 @@ def extract_select_sfc_vars_to_netcdf(grib_file: Path, verbose: bool = False) ->
         "processed_with": "https://github.com/jankazil/hrrr-data",
     }
 
-    # Convert the file from GRIB2 to netCDF
-    ncfile_full = grib2nc(grib_file, verbose=verbose)
+    # netCDF file to be created
+    ncfile = grib_file.with_suffix('.nc')
 
-    # Name for file that will contain the selected variables
-    ncfile_new = ncfile_full
+    if refresh or not ncfile.exists():
+        if verbose:
+            print(flush=True)
+            print(
+                'Converting and extracting selected surface variables from',
+                grib_file,
+                '->',
+                ncfile,
+                flush=True,
+            )
 
-    # Rename the full file to a temporary file
-    ncfile_tmp_name = str(ncfile_full.name) + '.tmp'
-    ncfile_tmp = ncfile_full.parent / Path(ncfile_tmp_name)
-    ncfile_full.replace(ncfile_tmp)
+        # Convert GRIB to netCDF
+        ncfile_full = grib2nc(grib_file, verbose=verbose)
 
-    # Extract select variables
+        # Rename the netCDF file, then extract selected vars to the final netCDF file
+        ncfile_tmp = ncfile_full.with_name(ncfile_full.name + '.tmp')
+        ncfile_full.replace(ncfile_tmp)
 
-    nc2nc_extract_vars(
-        ncfile_tmp,
-        ncfile_new,
-        VARIABLES,
-        long_names=LONG_NAMES,
-        global_attributes=GLOBAL_ATTRS,
-    )
+        nc2nc_extract_vars(
+            ncfile_tmp,
+            ncfile,
+            VARIABLES,
+            long_names=LONG_NAMES,
+            global_attributes=GLOBAL_ATTRS,
+        )
 
-    # Process wind speed
+        nc2nc_process_wind_speed(ncfile)
 
-    nc2nc_process_wind_speed(ncfile_new)
+        ncfile_tmp.unlink()
 
-    ncfile_tmp.unlink()
+    else:
+        if verbose:
+            print(flush=True)
+            print(
+                'Conversion',
+                grib_file,
+                '->',
+                ncfile,
+                'skipped - file exists and refresh =',
+                refresh,
+                flush=True,
+            )
 
-    return ncfile_new
+    return ncfile

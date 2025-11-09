@@ -11,7 +11,6 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from hrrr_data import s3, tools
 
@@ -23,8 +22,9 @@ def run_fetch(
     forecast_lead_hour: int,
     region: str,
     local_dir: Path,
-    n_jobs: int,
-    extract: bool = True,
+    n_jobs: int = 1,
+    extract: bool = False,
+    refresh: bool = False,
     verbose: bool = False,
 ) -> list[Path]:
     """
@@ -45,10 +45,20 @@ def run_fetch(
         The geographic region identifier (for example, "conus").
     local_dir : Path
         Directory path where downloaded and processed files will be saved.
-    n_jobs : int
-        Number of parallel processes to use for downloading files.
+    n_jobs : int, optional
+        Number of parallel processes to use for downloading files. Default is 1.
     extract : bool, optional
-        If True, extract select surface variables from each GRIB2 file into a netCDF file. Default is True.
+        If True, extract select surface variables from each GRIB2 file into a netCDF file. Default is False.
+    refresh : bool, optional:
+        If True:
+          - Download a GRIB file even if it already exists on disk.
+          - If extract = True, convert the GRIB file to netCDF with selected
+            variables even if the netCDF file already exists on disk.
+        If False:
+          - Do not download a GRIB file if it already exists on disk.
+          - If extract = True, only convert the GRIB file to netCDF with selected
+            variables if the netCDF file does not already exists on disk.
+        Default is False.
     verbose : bool, optional
         If True, print progress and status messages. Default is False.
 
@@ -59,8 +69,6 @@ def run_fetch(
     """
 
     data_type = "wrfsfc"  # Surface data
-
-    refresh = False
 
     grib_files = s3.download_date_range(
         start_date,
@@ -79,14 +87,11 @@ def run_fetch(
 
     if extract:
         for grib_file in grib_files:
-            out_file = tools.extract_select_sfc_vars_to_netcdf(grib_file, verbose=verbose)
+            out_file = tools.extract_select_sfc_vars_to_netcdf(
+                grib_file, refresh=refresh, verbose=verbose
+            )
             if out_file:
                 out_files.append(out_file)
-                if verbose:
-                    print(
-                        f"Extracted select surface variables from {grib_file} to {out_file}",
-                        flush=True,
-                    )
 
     return out_files
 
@@ -142,6 +147,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Extract select variables from downloaded GRIB2 files to netCDF files.",
     )
     parser.add_argument(
+        '-r',
+        '--refresh',
+        action='store_true',
+        help=('Download and process files even if they already exist in the data directory'),
+    )
+
+    parser.add_argument(
         "-v",
         "--verbose",
         action='store_true',
@@ -164,9 +176,11 @@ def main(argv=None) -> int:
     forecast_lead_hour = args.forecast_lead_hour
     region = args.region
     local_dir = Path(args.data_dir)
+
     n_jobs: int | None = args.n_jobs
-    extract: Optional = args.extract
-    verbose: Optional = args.verbose
+    extract: bool | None = args.extract
+    refresh: bool | None = args.refresh
+    verbose: bool | None = args.verbose
 
     out_files = run_fetch(
         start_date,
@@ -175,8 +189,9 @@ def main(argv=None) -> int:
         forecast_lead_hour,
         region,
         local_dir,
-        n_jobs,
+        n_jobs=n_jobs,
         extract=extract,
+        refresh=refresh,
         verbose=verbose,
     )
 

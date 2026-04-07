@@ -1,358 +1,330 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -eu
-
-# Build, install, and test a **pure-Python** conda package from a Git tag.
-
-# If your package is not pure-Python (requires compiled C/C++/Fortran or platform-specific libraries), remove `noarch: python` from the recipe and build per platform.
+set -euo pipefail
 
 ################################################################################
-# User settings
+# Build and upload a pure-Python conda package from the local working tree
 ################################################################################
 
 ANACONDA_USER_NAME='jan.kazil'
-export LICENSE_ID="BSD-3-Clause"
-
-################################################################################
-# Settings from pyproject.toml
-################################################################################
-
-#
-# Extract metadata from pyproject.toml
-#
-
+LICENSE_ID='BSD-3-Clause'
 PYPROJECT="${PYPROJECT:-pyproject.toml}"
+BUILD_ENV_NAME="${BUILD_ENV_NAME:-conda-build-tmp}"
 
-# Python version from the line with requires-python and parse one version pattern (e.g. 3.10, 3.11.8)
+trim() {
+  printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
+map_dep_to_conda() {
+  local dep
+  dep="$(trim "$1")"
+
+  if [[ "$dep" == torch ]]; then
+    echo "pytorch"
+  elif [[ "$dep" == torch* ]]; then
+    echo "${dep/torch/pytorch}"
+  else
+    echo "$dep"
+  fi
+}
+
+cleanup() {
+  set +e
+  if command -v conda >/dev/null 2>&1; then
+    eval "$(conda shell.bash hook)"
+    conda deactivate >/dev/null 2>&1 || true
+    conda env remove -n "${BUILD_ENV_NAME}" -y >/dev/null 2>&1 || true
+  fi
+  rm -rf recipe
+}
+trap cleanup EXIT
+
+if [[ ! -f "$PYPROJECT" ]]; then
+  echo "Error: Could not find $PYPROJECT" >&2
+  exit 1
+fi
+
+if ! command -v conda >/dev/null 2>&1 && ! command -v mamba >/dev/null 2>&1; then
+  echo "Error: neither conda nor mamba is available on PATH." >&2
+  exit 1
+fi
+
+################################################################################
+# Extract metadata from pyproject.toml
+################################################################################
 
 PYTHON_SPEC=$(
   grep -E '^[[:space:]]*requires-python[[:space:]]*=' "$PYPROJECT" \
   | sed -E 's/.*requires-python[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/'
 )
 
-# Validate the requires-python specification
-if [[ -z "$PYTHON_SPEC" ]]; then
-  echo "Error: Could not find requires-python field in $PYPROJECT" >&2
+if [[ -z "${PYTHON_SPEC:-}" ]]; then
+  echo "Error: Could not find requires-python in $PYPROJECT" >&2
   exit 1
 fi
 
-# Reject if it contains a wildcard
 if grep -q '\*' <<< "$PYTHON_SPEC"; then
-  echo "Error: requires-python in $PYPROJECT contains wildcard (*) which makes the version specification ambiguous: $PYTHON_SPEC" >&2
+  echo "Error: requires-python contains wildcard (*): $PYTHON_SPEC" >&2
   exit 1
 fi
 
-# Reject if it contains a standalone < operator
 if grep -Eq '(^|[^<>=])<[^=]' <<< "$PYTHON_SPEC"; then
-  echo "Error: requires-python in $PYPROJECT contains standalone < operator which makes the version specification ambiguous: $PYTHON_SPEC" >&2
+  echo "Error: requires-python contains standalone < operator: $PYTHON_SPEC" >&2
   exit 1
 fi
 
-# Reject if it contains a standalone > operator
 if grep -Eq '(^|[^<>=])>[^=]' <<< "$PYTHON_SPEC"; then
-  echo "Error: requires-python in $PYPROJECT contains standalone > operator which makes the version specification ambiguous: $PYTHON_SPEC" >&2
+  echo "Error: requires-python contains standalone > operator: $PYTHON_SPEC" >&2
   exit 1
 fi
 
-# Require at least one of the explicit operators ==, >=, <=
 if ! grep -Eq '([><=]=)' <<< "$PYTHON_SPEC"; then
-  echo "Error: requires-python in $PYPROJECT must use at least one of the operators ==, >=, or <=: $PYTHON_SPEC" >&2
+  echo "Error: requires-python must use at least one of ==, >=, <= : $PYTHON_SPEC" >&2
   exit 1
 fi
 
-# Remove excluded versions (using !=)
 CLEAN_SPEC=$(sed -E 's/(^|,)[[:space:]]*!=[^,"]+//g; s/^[[:space:],]+//; s/[[:space:],]+$//' <<< "$PYTHON_SPEC")
-
-# Extract the first numeric version that appears
 PYTHON_VERSION=$(grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' <<< "$CLEAN_SPEC" | head -n 1)
 
-if [[ -z "$PYTHON_VERSION" ]]; then
-  echo "Error: Could not extract a valid Python version from requires-python specification in $PYPROJECT: $PYTHON_SPEC" >&2
+if [[ -z "${PYTHON_VERSION:-}" ]]; then
+  echo "Error: Could not extract a valid Python version from requires-python: $PYTHON_SPEC" >&2
   exit 1
 fi
-
-echo "Using Python ${PYTHON_VERSION} to create package."
-
-# Further metadata
 
 CODE_NAME=""
 CODE_TAG=""
 SUMMARY=""
-REPO_URL=""
 DEPS_LIST=""
 in_proj=0
 in_deps=0
 
-trim() {
-  # trim leading/trailing spaces
-  printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
-}
-
-# Read file line by line
 while IFS= read -r line; do
-  # Detect section starts
   case "$line" in
     "[project]") in_proj=1; continue ;;
-    "[["*"")     ;;  # ignore array-of-tables (not used here)
+    "[["*"") ;;
     "["*"]")
-      # Another section begins
-      if [ "$in_proj" -eq 1 ] && [ "$in_deps" -eq 0 ]; then
+      if [[ "$in_proj" -eq 1 && "$in_deps" -eq 0 ]]; then
         break
       fi
       ;;
   esac
 
-  [ "$in_proj" -eq 1 ] || continue
+  [[ "$in_proj" -eq 1 ]] || continue
 
-  # Dependencies block handling
-  if [ "$in_deps" -eq 1 ]; then
-    # End of the dependencies array?
+  if [[ "$in_deps" -eq 1 ]]; then
     case "$line" in
       *"]"*) in_deps=0 ;;
     esac
-    # Extract a quoted package if present: "pkgname",
     case "$line" in
       *\"*\"*)
-        dep=${line#*\"}; dep=${dep%\"*}
-        # Skip empty lines or comments
-        [ -n "$dep" ] && DEPS_LIST="${DEPS_LIST}${dep} "
+        dep=${line#*\"}
+        dep=${dep%\"*}
+        dep=$(map_dep_to_conda "$dep")
+        [[ -n "$dep" ]] && DEPS_LIST="${DEPS_LIST}|${dep}"
         ;;
     esac
     continue
   fi
 
-  # Look for the start of dependencies array
   case "$line" in
     *"dependencies"*"[")
       in_deps=1
-      # Also capture any package on the same line, if present (rare)
       case "$line" in
         *\"*\"*)
-          dep=${line#*\"}; dep=${dep%\"*}
-          [ -n "$dep" ] && DEPS_LIST="${DEPS_LIST}${dep} "
+          dep=${line#*\"}
+          dep=${dep%\"*}
+          dep=$(map_dep_to_conda "$dep")
+          [[ -n "$dep" ]] && DEPS_LIST="${DEPS_LIST}|${dep}"
+          ;;
       esac
       continue
       ;;
   esac
 
-  # name = "..."
   case "$line" in
     name[[:space:]]*=[[:space:]]*\"*\"*)
       val=${line#*=}
-      val=${val#*\"}; val=${val%\"*}
+      val=${val#*\"}
+      val=${val%\"*}
       CODE_NAME=$(trim "$val")
       ;;
   esac
 
-  # version = "..."
   case "$line" in
     version[[:space:]]*=[[:space:]]*\"*\"*)
       val=${line#*=}
-      val=${val#*\"}; val=${val%\"*}
+      val=${val#*\"}
+      val=${val%\"*}
       CODE_TAG=$(trim "$val")
       ;;
   esac
 
-  # description = "..."
   case "$line" in
     description[[:space:]]*=[[:space:]]*\"*\"*)
       val=${line#*=}
-      val=${val#*\"}; val=${val%\"*}
+      val=${val#*\"}
+      val=${val%\"*}
       SUMMARY=$(trim "$val")
       ;;
   esac
-
 done < "$PYPROJECT"
 
-# Construct derived variables
-
-IMPORT_NAME=$(printf '%s' "$CODE_NAME" | tr '-' '_')
-REPO_URL="https://github.com/jankazil/${CODE_NAME}.git"
-DEPENDENCIES=$(printf 'python %s' "$(trim "$DEPS_LIST")")
-
-# Export variables
-
-export CODE_NAME IMPORT_NAME CODE_TAG REPO_URL DEPENDENCIES SUMMARY
-
-#
-# Show settings for verification
-#
-
-echo
-echo "Settings determined from pyproject.toml:"
-echo
-echo "CODE_NAME=$CODE_NAME"
-echo "IMPORT_NAME=$IMPORT_NAME"
-echo "CODE_TAG=$CODE_TAG"
-echo "SUMMARY=$SUMMARY"
-echo "REPO_URL=$REPO_URL"
-echo "DEPENDENCIES=$DEPENDENCIES"
-
-echo ""
-read -p "This script will attempt to create a conda package and upload it to anaconda.org. Continue (Y/n)? "
-echo ""
-
-if [[  $REPLY != "Y" ]] ; then
-  echo "Nothing done."
-  exit
+if [[ -z "$CODE_NAME" || -z "$CODE_TAG" || -z "$SUMMARY" ]]; then
+  echo "Error: failed to extract required project metadata from $PYPROJECT" >&2
+  exit 1
 fi
 
-################################################################################
-# Automatic part
-################################################################################
+IMPORT_NAME=$(printf '%s' "$CODE_NAME" | tr '-' '_')
+DEPENDENCIES="${DEPS_LIST#|}"
 
-#
-# 0) Conda environment
-#
+echo
+echo "Detected project settings:"
+echo "  package name:      $CODE_NAME"
+echo "  import name:       $IMPORT_NAME"
+echo "  version:           $CODE_TAG"
+echo "  summary:           $SUMMARY"
+echo "  requires-python:   $PYTHON_SPEC"
+echo "  build target py:   $PYTHON_VERSION"
+echo "  anaconda user:     $ANACONDA_USER_NAME"
+echo
 
-# Deactivate all environments
+echo "Conda run dependencies:"
+if [[ -n "$DEPENDENCIES" ]]; then
+  OLD_IFS="$IFS"
+  IFS='|'
+  for dep in $DEPENDENCIES; do
+    [[ -n "$dep" ]] && echo "  - $dep"
+  done
+  IFS="$OLD_IFS"
+else
+  echo "  (none)"
+fi
+echo
 
-for i in $(seq ${CONDA_SHLVL}); do
-  eval "$(conda shell.bash hook)" # (this is necessary if we are running in a script)
-  conda deactivate
+read -r -p "Build and upload this package to anaconda.org? (Y/n) " REPLY
+echo
+if [[ "${REPLY:-Y}" != "Y" ]]; then
+  echo "Aborted."
+  exit 0
+fi
+
+eval "$(conda shell.bash hook)"
+
+while [[ "${CONDA_SHLVL:-0}" -gt 0 ]]; do
+  conda deactivate || true
 done
 
-# Activate base environment
-
-eval "$(conda shell.bash hook)" # (this is necessary if we are running in a script)
 conda activate base
-
-#
-# 1) Create required local files and folders
-#
 
 mkdir -p recipe
 
-#
-# 2) Generate a valid `recipe/meta.yaml` from your variables
-#
-
-# This recipe:
-# - Builds **noarch** (pure-Python) via `pip install .` into the correct prefix using `$PYTHON`.
-# - Pulls source from your **Git tag** for reproducibility.
-# - Expands `DEPENDENCIES` into the `run` section automatically using Jinja and environment variables.
-# - Includes `setuptools` and `wheel` in the **host** section to satisfy modern `pyproject.toml` builds (prevents `BackendUnavailable: Cannot import 'setuptools.build_meta'`).
-# - Uses **single-line** test commands (no YAML here-docs) to avoid parser errors.
-# - Imports your module and prints its package version.
+export CODE_NAME
+export CODE_TAG
+export SUMMARY
+export IMPORT_NAME
+export LICENSE_ID
+export DEPENDENCIES
 
 cat > recipe/meta.yaml <<'EOF'
 {% set name = environ.get("CODE_NAME") %}
 {% set version = environ.get("CODE_TAG") %}
-{% set repo = environ.get("REPO_URL") %}
 {% set summary = environ.get("SUMMARY") %}
 {% set license_id = environ.get("LICENSE_ID") %}
 {% set import_name = environ.get("IMPORT_NAME") %}
-{% set deps = (environ.get("DEPENDENCIES") or "").split() %}
+{% set deps = (environ.get("DEPENDENCIES") or "").split("|") %}
 
 package:
   name: {{ name }}
   version: {{ version }}
 
 source:
-  git_url: {{ repo }}
-  git_rev: {{ version }}
+  path: ..
 
-outputs:
-  - name: {{ name }}
-    build:
-      noarch: python
-      number: 0
-      script: |
-        set -eux
-        $PYTHON -m pip install . -vv --no-build-isolation
-    requirements:
-      build:
-        - python
-        - pip
-        - setuptools >=77
-        - wheel
-      host:
-        - python
-        - pip
-        - setuptools >=77
-        - wheel
-      run:
+build:
+  noarch: python
+  number: 0
+  script: {{ PYTHON }} -m pip install . --no-build-isolation -vv
+
+requirements:
+  host:
+    - python
+    - pip
+    - setuptools >=77
+    - wheel
+  run:
+    - python
 {% for dep in deps %}
-        - {{ dep }}
+{%   if dep %}
+    - {{ dep }}
+{%   endif %}
 {% endfor %}
-    test:
-      commands:
-        - python -c "import {{ import_name }} as _m; import importlib.metadata as m; print('OK', m.version('{{ name }}')); print('Import:', _m.__name__)"
-      imports:
-        - {{ import_name }}
-    about:
-      home: {{ repo }}
-      summary: {{ summary }}
-      license: {{ license_id }}
-      license_file: LICENSE
+
+test:
+  imports:
+    - {{ import_name }}
+  commands:
+    - python -c "import {{ import_name }} as _m; import importlib.metadata as m; print('OK', m.version('{{ name }}')); print('Import:', _m.__name__)"
+
+about:
+  summary: {{ summary }}
+  license: {{ license_id }}
+  license_file: LICENSE
 EOF
 
-#
-# 3) Prepare a dedicated build environment
-#
+if command -v mamba >/dev/null 2>&1; then
+  mamba create -y -n "${BUILD_ENV_NAME}" -c conda-forge conda-build anaconda-client
+else
+  conda create -y -n "${BUILD_ENV_NAME}" -c conda-forge conda-build anaconda-client
+fi
 
-mamba create -y -n conda-build -c conda-forge python=${PYTHON_VERSION} conda-build conda-verify anaconda-client
-conda activate conda-build
+conda activate "${BUILD_ENV_NAME}"
+
+echo
+echo "Using conda-build from:"
+echo "  CONDA_PREFIX=$CONDA_PREFIX"
 conda build --version
-
-#
-# 4) Build the package
-#
+echo
 
 conda build -c conda-forge --python "${PYTHON_VERSION}" recipe
 
-# Optional - List the produced artifacts
-
-BLD_DIR="$CONDA_PREFIX/conda-bld"
-find "$BLD_DIR" -maxdepth 2 -type f \( -name "${CODE_NAME}-*.conda" -o -name "${CODE_NAME}-*.tar.bz2" \) -print
-
-#
-# 5) Upload to personal Anaconda.org account
-#
-
-# Log in once (will store token in ~/.conda/anaconda.yaml)
+CONDA_BLD_PATH="$(conda info --base)/conda-bld"
 
 echo
-echo "Loggin in to anaconda.org:"
+echo "Built artifacts:"
+find "$CONDA_BLD_PATH" -maxdepth 2 -type f \( -name "${CODE_NAME}-*.conda" -o -name "${CODE_NAME}-*.tar.bz2" \) -print || true
 echo
-anaconda login
 
-# Upload your built package from your local conda-bld directory
+ARTIFACT=$(
+  find "$CONDA_BLD_PATH" -maxdepth 2 -type f -name "${CODE_NAME}-${CODE_TAG}-*.conda" | head -n 1
+)
 
-# Point to the actual build folder
-export BLD_DIR="$CONDA_PREFIX/conda-bld"
-
-# Verify the artifact location and name
-find "$BLD_DIR" -maxdepth 2 -type f \( -name "${CODE_NAME}-*.conda" -o -name "${CODE_NAME}-*.tar.bz2" \) -print
-
-# Upload the noarch build to your user channel
-
-echo ""
-read -p "Upload to anaconda.org (Y/n)? "
-echo ""
-
-if [[  $REPLY != "Y" ]] ; then
-  echo "Nothing done."
-  exit
+if [[ -z "${ARTIFACT:-}" ]]; then
+  ARTIFACT=$(
+    find "$CONDA_BLD_PATH" -maxdepth 2 -type f -name "${CODE_NAME}-${CODE_TAG}-*.tar.bz2" | head -n 1
+  )
 fi
 
-anaconda upload "$BLD_DIR/noarch/${CODE_NAME}-${CODE_TAG}-"*.conda --user ${ANACONDA_USER_NAME} || true
+if [[ -z "${ARTIFACT:-}" ]]; then
+  echo "Error: no built artifact found for ${CODE_NAME} ${CODE_TAG}" >&2
+  exit 1
+fi
 
-#
-# 6) Cleanup
-#
+echo "Selected artifact:"
+echo "  $ARTIFACT"
+echo
 
-# Deactivate and remove build environment
+echo "Logging in to anaconda.org"
+anaconda login
+echo
 
-conda deactivate
-conda env remove -n conda-build -y
+read -r -p "Upload artifact to anaconda.org user ${ANACONDA_USER_NAME}? (Y/n) " REPLY
+echo
+if [[ "${REPLY:-Y}" != "Y" ]]; then
+  echo "Upload skipped."
+  exit 0
+fi
 
-# Remove temporary directories
+anaconda upload --user "${ANACONDA_USER_NAME}" "$ARTIFACT"
 
-rm -rf recipe
-
-#
-# 7) Optional - Test by creating an environment for the package and then installing it from personal channel
-#
-
-#mamba create -n "${CODE_NAME}" -c ${ANACONDA_USER_NAME} -c conda-forge "${CODE_NAME}"
+echo
+echo "Upload complete."

@@ -38,7 +38,7 @@ IMPORT_NAME_OVERRIDE="${IMPORT_NAME_OVERRIDE:-}"
 ANACONDA_USER_NAME='jan.kazil'
 LICENSE_ID='BSD-3-Clause'
 PYPROJECT="${PYPROJECT:-pyproject.toml}"
-BUILD_ENV_NAME="${BUILD_ENV_NAME:-conda-build-tmp}"
+BUILD_ENV_NAME="${BUILD_ENV_NAME:-conda-build-tmp}-${BASHPID}"
 
 trim() {
   printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'

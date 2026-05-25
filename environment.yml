@@ -4,6 +4,11 @@ channels:
 dependencies:
   - python>=3.11
   - pip
+  - pipreqs
+  - pre-commit
+  - ruff
+  - mypy
+  - mamba
   - cartopy
   - matplotlib
   - ncl
@@ -13,5 +18,9 @@ dependencies:
   - requests
   - s3fs
   - xarray
+  - jupyter_client
+  - jupyter_core
+  - notebook
+  - ipykernel
   - pip:
       - git+https://github.com/jankazil/hrrr-data

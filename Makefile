@@ -1,4 +1,5 @@
-.PHONY: fmt lint type test check clean 
+.PHONY: fmt lint test check clean setup-dev-env upload-anaconda
+#.PHONY: fmt lint type test check clean setup-dev-env upload-anaconda
 
 fmt:
 	python -m ruff format
@@ -11,6 +12,12 @@ type:
 
 test:
 	pytest
+
+setup-dev-env:
+	bash scripts/setup-dev-env.sh
+
+upload-anaconda:
+	bash scripts/upload2anaconda.sh
 
 check: fmt lint
 

@@ -16,6 +16,13 @@ It provides:
 
 ## Installation
 
+### pip
+
+```bash
+pip install hrrr-data
+```
+
+### conda / mamba
 ```bash
 mamba install -c jan.kazil -c conda-forge hrrr-data
 ```

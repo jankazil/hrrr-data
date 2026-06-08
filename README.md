@@ -34,7 +34,7 @@ This repository provides the following top-level command-line interface (CLI) sc
 - **`hrrr-fetch-sfc-forecast`**: Download HRRR surface forecast GRIB2 files for a given date range, initialization hour, forecast lead time, and region from the NOAA S3 bucket. If requested, a subset of pre-defined variables (temperature, humidity, wind speed, precipitation) is extracted into a netCDF file. Both the GRIB2 and the processed netCDF files are stored locally.
 
 - **`hrrr-extract-sfc-vars`**: Process a single local HRRR GRIB2 file (previously downloaded) by converting it to netCDF and writing a new netCDF file that contains a pre-defined set of variables, with added long names and metadata attributes.
-  
+
 - **`hrrr-plot-singlelevel-conus`**: Create a plot of every HRRR variable that has only the horizontal grid dimensions latitude and longitude in a given HRRR netCDF file, one PNG file per variable. Assumes that the netCDF file contains variables over CONUS.
 
 The pre-defined variables extracted and saved in netCDF files are:
@@ -130,7 +130,7 @@ hrrr-plot-singlelevel-conus /path/to/file.nc
   file.<variable_name>.png
   ```
   Each figure is a Lambert Conformal CONUS map with a colorbar labeled from the variable’s `long_name` and `units` attributes. Variables that do not match the required 2-D grid shape are skipped.
-  
+
 **Example:**
 
   Relative humidity at 2 m forecast for 2025-07-01 20:00:00 UTC, 32 h forecast lead time:
@@ -168,6 +168,10 @@ The `demos` directory provides example scripts demonstrating individual operatio
 
 ## Development
 
+### Code Development Commands
+
+- `make setup-dev-env` - Creates an editable conda development environment with all required dependencies.
+
 ### Code Quality and Testing Commands
 
 - `make fmt` - Runs ruff format, which automatically reformats Python files according to the style rules in `pyproject.toml`
@@ -175,6 +179,11 @@ The `demos` directory provides example scripts demonstrating individual operatio
 - `make check` - Runs fmt and lint.
 - `make type` - Currently disabled. Runs mypy, the static type checker, using the strictness settings from `pyproject.toml`.
 - `make test` - Runs pytest with reporting (configured in `pyproject.toml`).
+
+### Code Publishing Commands
+
+- `make upload-pypi` - Uploads the package to pypi.org (credentials required)
+- `make upload-anaconda` - Uploads the package to anaconda.org (credentials required)
 
 ## Disclaimer
 

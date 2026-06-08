@@ -14,6 +14,7 @@ authors = [{ name = "Jan Kazil" }]
 dependencies = [
   "cartopy",
   "matplotlib",
+  "ncl",
   "numpy",
   "netcdf4",
   "pygrib",

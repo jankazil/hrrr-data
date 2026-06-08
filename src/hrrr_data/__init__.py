@@ -1,7 +1,7 @@
 from importlib.metadata import PackageNotFoundError, version
 
 # Distribution name as published (matches [project].name in pyproject.toml)
-_DIST_NAME = "arotake"
+_DIST_NAME = "hrrr-data"
 
 try:
     __version__ = version(_DIST_NAME)

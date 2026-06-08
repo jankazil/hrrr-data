@@ -39,7 +39,7 @@ cleanup() {
         eval "$(conda shell.bash hook)" >/dev/null 2>&1 || true
 
         if conda env list | awk '{print $1}' | grep -Fxq "$BUILD_ENV_NAME"; then
-            conda run -n "$BUILD_ENV_NAME" conda build purge >/dev/null 2>&1 || true
+            conda run -n "$BUILD_ENV_NAME" conda-build purge >/dev/null 2>&1 || true
         fi
 
         while [[ "${CONDA_SHLVL:-0}" -gt 0 ]]; do
@@ -290,10 +290,8 @@ else
     conda create -y -n "$BUILD_ENV_NAME" -c conda-forge conda-build anaconda-client
 fi
 
-conda activate "$BUILD_ENV_NAME"
-
-ARTIFACT="$(conda build -c conda-forge --python "$PYTHON_VERSION" "$RECIPE_DIR" --output)"
-conda build -c conda-forge --python "$PYTHON_VERSION" "$RECIPE_DIR"
+ARTIFACT="$(conda run -n "$BUILD_ENV_NAME" conda-build -c conda-forge --python "$PYTHON_VERSION" "$RECIPE_DIR" --output)"
+conda run -n "$BUILD_ENV_NAME" conda-build -c conda-forge --python "$PYTHON_VERSION" "$RECIPE_DIR"
 
 if [[ ! -f "$ARTIFACT" ]]; then
     echo "Error: expected artifact not found: $ARTIFACT" >&2

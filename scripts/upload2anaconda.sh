@@ -304,10 +304,22 @@ echo "  $ARTIFACT"
 echo "Using anaconda-client executable:"
 conda run -n "$BUILD_ENV_NAME" which anaconda
 
-echo "Logging in to anaconda.org"
-conda run -n "$BUILD_ENV_NAME" anaconda login
+if [[ -z "${ANACONDA_API_TOKEN:-}" ]]; then
+    echo "Error: ANACONDA_API_TOKEN is not set." >&2
+    echo "Create an Anaconda.org API token and run:" >&2
+    echo "  export ANACONDA_API_TOKEN='<token>'" >&2
+    exit 1
+fi
 
-conda run -n "$BUILD_ENV_NAME" anaconda upload --user "$ANACONDA_USER_NAME" "$ARTIFACT"
+echo "Using anaconda-client executable:"
+conda run -n "$BUILD_ENV_NAME" which anaconda
+
+echo "Uploading to anaconda.org"
+conda run -n "$BUILD_ENV_NAME" anaconda \
+    --token "$ANACONDA_API_TOKEN" \
+    upload \
+    --user "$ANACONDA_USER_NAME" \
+    "$ARTIFACT"
 
 echo
 echo "Upload complete. Temporary build environment and conda-build intermediates will now be removed."

@@ -1,4 +1,4 @@
-name: hrrr_data
+name: hrrr-data
 channels:
   - conda-forge
 dependencies:

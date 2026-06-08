@@ -14,7 +14,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 cd "$PROJECT_ROOT"
 
-ENV_NAME="hrrr-data"
+ENV_NAME="hrrr_data"
 KERNEL_NAME="hrrr-data"
 ENV_FILE="environment.yml"
 

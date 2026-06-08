@@ -2,13 +2,78 @@
 Tools for operations on files in GRIB and netCDF format.
 '''
 
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
 import pygrib
 import xarray as xr
+
+
+def find_executable(name: str, env_var: str | None = None) -> Path:
+    '''
+    Find an external executable, preferring an explicit override and then the
+    active Python environment.
+
+    The lookup order is:
+
+    1. If ``env_var`` is given and that environment variable is set, interpret its
+       value as the executable path. A leading ``~`` is expanded. If the referenced
+       file exists and is a regular file, that path is returned. If the environment
+       variable is set but does not point to an existing file, a ``RuntimeError`` is
+       raised.
+    2. Look for ``name`` in the ``bin`` directory of the active Python environment,
+       as determined by ``sys.prefix``.
+    3. Fall back to normal ``PATH`` resolution using ``shutil.which``.
+
+    This avoids accidentally using a system executable when Python is running from
+    a virtual environment or conda environment whose ``bin`` directory is not first
+    on ``PATH``. This can occur, for example, in Jupyter kernels that use the
+    correct Python executable but inherit an incomplete shell environment.
+
+    Parameters
+    ----------
+    name : str
+        Name of the executable to find, for example ``'ncl_convert2nc'``.
+    env_var : str or None, optional
+        Name of an environment variable that may contain an explicit path to the
+        executable. If None, no override environment variable is checked.
+        Defaults to None.
+
+    Returns
+    -------
+    Path
+        Path to the resolved executable.
+
+    Raises
+    ------
+    RuntimeError
+        If ``env_var`` is set but does not point to an existing regular file, or if
+        the executable cannot be found in the active Python environment or on
+        ``PATH``.
+    '''
+    if env_var is not None:
+        override = os.environ.get(env_var)
+        if override:
+            exe = Path(override).expanduser()
+            if exe.exists() and exe.is_file():
+                return exe
+            raise RuntimeError(f'{env_var} is set to {override!r}, but that file does not exist.')
+
+    env_bin = Path(sys.prefix) / 'bin' / name
+
+    if env_bin.exists() and env_bin.is_file():
+        return env_bin
+
+    path_exe = shutil.which(name)
+
+    if path_exe is not None:
+        return Path(path_exe)
+
+    raise RuntimeError(f'Could not find executable {name!r}. Expected it in {env_bin} or on PATH.')
 
 
 def grib_list_vars(file: Path) -> dict[str, str]:
@@ -34,51 +99,88 @@ def grib_list_vars(file: Path) -> dict[str, str]:
     return vars
 
 
-def grib2nc(grib_file: Path, verbose: bool = False):
+def grib2nc(grib_file: Path, verbose: bool = False) -> Path:
     '''
-    Converts a file in GRIB format to a file in netCDF format.
+    Convert a GRIB file to netCDF format using ``ncl_convert2nc``.
 
-    For simplicity, an external tool is used, ncl_convert2nc, which must be installed on the host system.
+    The conversion is performed by the external ``ncl_convert2nc`` executable.
+    The executable is resolved with :func:`find_executable`, which should prefer
+    the executable installed in the active Python environment before falling back
+    to the system ``PATH``. This is important in Jupyter kernels, where the Python
+    interpreter may belong to a conda environment while ``PATH`` may still point to
+    system executables.
 
-    If the file in netCDF format exists, it will be overwritten.
+    The output file is written to the same directory as ``grib_file`` and has the
+    same stem with a ``.nc`` suffix. If a file with that name already exists,
+    ``ncl_convert2nc`` may overwrite it.
 
-    Args:
-        grib_file (Path): Local file path to a file in GRIB format.
-        verbose (bool, optional): If True, print detailed progress information to stdout. Defaults to False.
+    Parameters
+    ----------
+    grib_file : Path
+        Local path to the input GRIB file.
+    verbose : bool, optional
+        If True, print diagnostic information, including the resolved
+        ``ncl_convert2nc`` executable, the command being run, the expected output
+        file, the subprocess return code, and any captured stdout/stderr.
+        Defaults to False.
 
-    Returns:
-        Path: Local file path to a file in netCDF format.
+    Returns
+    -------
+    Path
+        Local path to the generated netCDF file.
+
+    Raises
+    ------
+    RuntimeError
+        If ``ncl_convert2nc`` exits with a nonzero return code.
+    FileNotFoundError
+        If ``ncl_convert2nc`` completes successfully but the expected netCDF output
+        file is not created.
+
+    Notes
+    -----
+    This function checks both the subprocess return code and the existence of the
+    expected output file. This avoids masking failures from ``ncl_convert2nc`` as
+    later file-operation errors.
     '''
 
-    if shutil.which("ncl_convert2nc") is None:
-        print(
-            "Warning: ncl_convert2nc is not available on PATH. Skipping conversion to netCDF.",
-            flush=True,
-        )
-        return
-
-    # Construct the command
+    exe = find_executable('ncl_convert2nc')
 
     output_dir = grib_file.parent
-    output_file_name = grib_file.stem + '.nc'
-    output_file = output_dir / output_file_name
+    output_file = output_dir / (grib_file.stem + '.nc')
 
-    cmd = ['ncl_convert2nc', str(grib_file), '-o', output_dir]
+    cmd = [str(exe), str(grib_file), '-o', str(output_dir)]
 
-    # Call the command
     result = subprocess.run(cmd, capture_output=True, text=True)
 
-    # Print output
     if verbose:
-        print(flush=True)
-        print('running ncl_convert2nc to produce the file', flush=True)
-        print(flush=True)
-        print(str(output_file), flush=True)
-        print(flush=True)
-        if result.stdout != '':
-            print(result.stdout, flush=True)
-        if result.stderr != '':
-            print(result.stderr, flush=True)
+        print()
+        print('running ncl_convert2nc')
+        print('executable:', exe)
+        print('command:', cmd)
+        print('expected output:', output_file)
+        print('return code:', result.returncode)
+        if result.stdout:
+            print(result.stdout)
+        if result.stderr:
+            print(result.stderr)
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            'ncl_convert2nc failed\n'
+            f'executable: {exe}\n'
+            f'command: {cmd}\n'
+            f'return code: {result.returncode}\n'
+            f'stdout:\n{result.stdout}\n'
+            f'stderr:\n{result.stderr}'
+        )
+
+    if not output_file.exists():
+        raise FileNotFoundError(
+            'ncl_convert2nc completed, but did not create the expected file\n'
+            f'executable: {exe}\n'
+            f'expected output: {output_file}'
+        )
 
     return output_file
 

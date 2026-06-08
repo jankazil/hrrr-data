@@ -303,7 +303,6 @@ echo "  $ARTIFACT"
 
 echo "Using anaconda-client executable:"
 conda run -n "$BUILD_ENV_NAME" which anaconda
-conda run -n "$BUILD_ENV_NAME" anaconda --version
 
 echo "Logging in to anaconda.org"
 conda run -n "$BUILD_ENV_NAME" anaconda login

@@ -13,6 +13,26 @@ import pygrib
 import xarray as xr
 
 
+def active_python_env_subprocess_env() -> dict[str, str]:
+    '''
+    Return a subprocess environment consistent with the active Python
+    environment.
+
+    This is needed for Jupyter kernels that use the correct Python executable
+    but inherit an incomplete conda environment, for example a wrong
+    CONDA_PREFIX or PATH.
+    '''
+    env = os.environ.copy()
+
+    env_prefix = Path(sys.prefix)
+    env_bin = env_prefix / 'bin'
+
+    env['CONDA_PREFIX'] = str(env_prefix)
+    env['PATH'] = str(env_bin) + os.pathsep + env.get('PATH', '')
+
+    return env
+
+
 def find_executable(name: str, env_var: str | None = None) -> Path:
     '''
     Find an external executable, preferring an explicit override and then the
@@ -110,9 +130,16 @@ def grib2nc(grib_file: Path, verbose: bool = False) -> Path:
     interpreter may belong to a conda environment while ``PATH`` may still point to
     system executables.
 
-    The output file is written to the same directory as ``grib_file`` and has the
-    same stem with a ``.nc`` suffix. If a file with that name already exists,
-    ``ncl_convert2nc`` may overwrite it.
+    The subprocess is run with an environment adjusted to match the active Python
+    environment. In particular, the active Python environment's ``bin`` directory
+    is prepended to ``PATH`` and ``CONDA_PREFIX`` is set from ``sys.prefix``. This
+    avoids failures in Jupyter kernels that use the correct Python executable but
+    inherit incomplete or incorrect conda environment variables.
+
+    The input path is expanded and resolved before conversion. The output file is
+    written to the same directory as ``grib_file`` and has the same stem with a
+    ``.nc`` suffix. If a file with that name already exists, ``ncl_convert2nc`` may
+    overwrite it.
 
     Parameters
     ----------
@@ -141,17 +168,25 @@ def grib2nc(grib_file: Path, verbose: bool = False) -> Path:
     -----
     This function checks both the subprocess return code and the existence of the
     expected output file. This avoids masking failures from ``ncl_convert2nc`` as
-    later file-operation errors.
+    later file-operation errors. If the expected output is missing, the error
+    message includes nearby files and captured subprocess output to help diagnose
+    whether ``ncl_convert2nc`` wrote a differently named file or failed silently.
     '''
 
     exe = find_executable('ncl_convert2nc')
 
+    grib_file = grib_file.expanduser().resolve()
     output_dir = grib_file.parent
     output_file = output_dir / (grib_file.stem + '.nc')
 
     cmd = [str(exe), str(grib_file), '-o', str(output_dir)]
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        env=active_python_env_subprocess_env(),
+    )
 
     if verbose:
         print()
@@ -176,10 +211,19 @@ def grib2nc(grib_file: Path, verbose: bool = False) -> Path:
         )
 
     if not output_file.exists():
+        similar_files = sorted(output_dir.glob(grib_file.stem + '*.nc'))
+        nearby_files = sorted(output_dir.glob(grib_file.stem + '*'))
+
         raise FileNotFoundError(
             'ncl_convert2nc completed, but did not create the expected file\n'
             f'executable: {exe}\n'
-            f'expected output: {output_file}'
+            f'command: {cmd}\n'
+            f'expected output: {output_file}\n'
+            f'output directory: {output_dir}\n'
+            f'similar netCDF files: {similar_files}\n'
+            f'nearby files: {nearby_files}\n'
+            f'stdout:\n{result.stdout}\n'
+            f'stderr:\n{result.stderr}'
         )
 
     return output_file

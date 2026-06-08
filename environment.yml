@@ -4,23 +4,32 @@ channels:
 dependencies:
   - python>=3.11
   - pip
-  - pipreqs
-  - pre-commit
-  - ruff
-  - mypy
+  - setuptools
+  - wheel
   - mamba
+
+  # Runtime dependencies mirrored from pyproject.toml.
   - cartopy
   - matplotlib
-  - ncl
-  - netcdf4
   - numpy
+  - netcdf4
   - pygrib
   - requests
   - s3fs
   - xarray
+
+  # Non-Python/runtime tools used by the project environment.
+  - ncl
+
+  # Development tooling.
+  - pytest
+  - pytest-cov
+  - mypy
+  - ruff
+  - pre-commit
+
+  # Jupyter support.
   - jupyter_client
   - jupyter_core
   - notebook
   - ipykernel
-  - pip:
-      - git+https://github.com/jankazil/hrrr-data

@@ -301,10 +301,14 @@ fi
 echo "Selected artifact:"
 echo "  $ARTIFACT"
 
-echo "Logging in to anaconda.org"
-anaconda login
+echo "Using anaconda-client executable:"
+conda run -n "$BUILD_ENV_NAME" which anaconda
+conda run -n "$BUILD_ENV_NAME" anaconda --version
 
-anaconda upload --user "$ANACONDA_USER_NAME" "$ARTIFACT"
+echo "Logging in to anaconda.org"
+conda run -n "$BUILD_ENV_NAME" anaconda login
+
+conda run -n "$BUILD_ENV_NAME" anaconda upload --user "$ANACONDA_USER_NAME" "$ARTIFACT"
 
 echo
 echo "Upload complete. Temporary build environment and conda-build intermediates will now be removed."

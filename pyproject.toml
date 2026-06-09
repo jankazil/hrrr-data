@@ -32,7 +32,6 @@ hrrr-plot-singlelevel-conus = "hrrr_data.hrrr_plot_singlelevel_conus:main" # Con
 dev = [
   "pytest>=8",
   "pytest-cov>=5",
-  "mypy>=1.11",
   "ruff>=0.5",
   "pre-commit>=3.7",
 ]
@@ -71,22 +70,11 @@ ignore = ["E501", "F841", "SIM108"]
 quote-style = "preserve"
 
 #
-# MyPy is disabled because static analysis cannot account for all
+# MyPy is not used because static analysis cannot account for all
 # dynamic runtime behaviors, mypy may report false positives which
 # do no reflect actual runtime issues.
 #
 #[tool.mypy]
-##python_version = "3.11"
-#warn_unused_configs = true
-#disallow_untyped_defs = true
-#disallow_incomplete_defs = true
-#no_implicit_optional = true
-#check_untyped_defs = true
-#strict_optional = true
-#pretty = true
-#namespace_packages = true
-#mypy_path = "src"
-#files = ["src/hrrr_data"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

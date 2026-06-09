@@ -12,9 +12,6 @@ test:
 setup-dev-env:
 	bash scripts/setup-dev-env.sh
 
-upload-pypi:
-	bash scripts/upload2pypi.sh
-
 upload-anaconda:
 	bash scripts/upload2anaconda.sh
 

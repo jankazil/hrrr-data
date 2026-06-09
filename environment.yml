@@ -25,7 +25,6 @@ dependencies:
   # Development tooling.
   - pytest
   - pytest-cov
-  - mypy
   - ruff
   - pre-commit
 

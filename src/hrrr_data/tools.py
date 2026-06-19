@@ -297,9 +297,8 @@ def nc2nc_process_wind_speed(nc_file: Path):
 
     then
 
-    - the horizontal wind speed is calculated at all levels for which UGRD_P0_L103_GLC0 and VGRD_P0_L103_GLC0 are defined
-    - UGRD_P0_L103_GLC0 and VGRD_P0_L103_GLC0 are removed from the netCDF file,
-    - the horizontal wind speed is saved in the netCDF file, one variable per level,
+    - Individual (U,V) wind speed variables are created for each altitude at which wind speed is given
+    - The wind speed variables UGRD_P0_L103_GLC0 and VGRD_P0_L103_GLC0 are removed,
     - all other variables in the netCDF file are kept unchanged.
 
     Arguments
@@ -334,56 +333,68 @@ def nc2nc_process_wind_speed(nc_file: Path):
         # Do nothing and return.
         return
 
-    # Calculate horizontal wind speed
-    wind_speed = np.sqrt(ds[u_var] ** 2 + ds[v_var] ** 2)
+    #
+    # Create individual (U,V) wind speed variables for each altitude at which wind speed is given
+    #
 
-    if alt_dim in wind_speed.dims:
+    wind_var_names = ['U', 'V']
+    wind_var_long_names = ['West-east wind speed', 'South-north wind speed']
+    wind_vars = [ds[u_var], ds[v_var]]
+
+    attrs_to_copy = [
+        'initial_time',
+        'forecast_time_units',
+        'forecast_time',
+        'level_type',
+        'parameter_template_discipline_category_number',
+        'parameter_discipline_and_category',
+        'grid_type',
+        'units',
+        'production_status',
+        'center',
+    ]
+
+    if all(alt_dim in wind_var.dims for wind_var in wind_vars):
+        seen_names = set()
+
         for alt_i in range(ds.sizes[alt_dim]):
-            alt_string_int = str(int(np.round(ds[alt_dim][alt_i].item())))
-            alt_string_float = str(np.round(ds[alt_dim][alt_i].item(), 3))
+            alt_value = ds[alt_dim][alt_i].item()
+            alt_string_int = str(int(np.round(alt_value)))
+            alt_string_float = str(np.round(alt_value, 3))
 
-            ds['WS' + alt_string_int] = wind_speed.isel({alt_dim: alt_i})
+            for wind_var_name, wind_var_long_name, wind_var in zip(
+                wind_var_names, wind_var_long_names, wind_vars, strict=True
+            ):
+                new_var_name = wind_var_name + alt_string_int
 
-            ds['WS' + alt_string_int].attrs['initial_time'] = ds[u_var].attrs['initial_time']
-            ds['WS' + alt_string_int].attrs['forecast_time_units'] = ds[u_var].attrs[
-                'forecast_time_units'
-            ]
-            ds['WS' + alt_string_int].attrs['forecast_time'] = ds[u_var].attrs['forecast_time']
-            ds['WS' + alt_string_int].attrs['level_type'] = ds[u_var].attrs['level_type']
-            ds['WS' + alt_string_int].attrs['parameter_template_discipline_category_number'] = ds[
-                u_var
-            ].attrs['parameter_template_discipline_category_number']
-            ds['WS' + alt_string_int].attrs['parameter_discipline_and_category'] = ds[u_var].attrs[
-                'parameter_discipline_and_category'
-            ]
-            ds['WS' + alt_string_int].attrs['grid_type'] = ds[u_var].attrs['grid_type']
-            ds['WS' + alt_string_int].attrs['units'] = ds[u_var].attrs['units']
-            ds['WS' + alt_string_int].attrs['long_name'] = (
-                'Horizontal wind speed at ' + alt_string_float + ' ' + ds[alt_dim].attrs['units']
-            )
-            ds['WS' + alt_string_int].attrs['production_status'] = ds[u_var].attrs[
-                'production_status'
-            ]
-            ds['WS' + alt_string_int].attrs['center'] = ds[u_var].attrs['center']
+                if new_var_name in seen_names or new_var_name in ds:
+                    raise ValueError(f'Duplicate output variable name: {new_var_name}')
+
+                seen_names.add(new_var_name)
+
+                ds[new_var_name] = wind_var.isel({alt_dim: alt_i})
+
+                for attr_name in attrs_to_copy:
+                    ds[new_var_name].attrs[attr_name] = wind_var.attrs[attr_name]
+
+                ds[new_var_name].attrs['long_name'] = (
+                    wind_var_long_name
+                    + ' at '
+                    + alt_string_float
+                    + ' '
+                    + ds[alt_dim].attrs['units']
+                )
 
     else:
-        ds['WS'] = wind_speed
+        for wind_var_name, wind_var_long_name, wind_var in zip(
+            wind_var_names, wind_var_long_names, wind_vars, strict=True
+        ):
+            ds[wind_var_name] = wind_var
 
-        ds['WS'].attrs['initial_time'] = ds[u_var].attrs['initial_time']
-        ds['WS'].attrs['forecast_time_units'] = ds[u_var].attrs['forecast_time_units']
-        ds['WS'].attrs['forecast_time'] = ds[u_var].attrs['forecast_time']
-        ds['WS'].attrs['level_type'] = ds[u_var].attrs['level_type']
-        ds['WS'].attrs['parameter_template_discipline_category_number'] = ds[u_var].attrs[
-            'parameter_template_discipline_category_number'
-        ]
-        ds['WS'].attrs['parameter_discipline_and_category'] = ds[u_var].attrs[
-            'parameter_discipline_and_category'
-        ]
-        ds['WS'].attrs['grid_type'] = ds[u_var].attrs['grid_type']
-        ds['WS'].attrs['units'] = ds[u_var].attrs['units']
-        ds['WS'].attrs['long_name'] = 'Horizontal wind speed'
-        ds['WS'].attrs['production_status'] = ds[u_var].attrs['production_status']
-        ds['WS'].attrs['center'] = ds[u_var].attrs['center']
+            for attr_name in attrs_to_copy:
+                ds[wind_var_name].attrs[attr_name] = wind_var.attrs[attr_name]
+
+            ds[wind_var_name].attrs['long_name'] = wind_var_long_name
 
     # Remove original wind speed variables
     ds = ds.drop_vars(variables)

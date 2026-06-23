@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -263,9 +264,14 @@ def nc2nc_extract_vars(
         # Check for missing variables
         missing_vars = [var for var in variables if var not in ds.variables]
         if missing_vars:
-            raise KeyError(
-                f'The following variables are not found in the input file: {missing_vars}'
+            warnings.warn(
+                f'The following variables are not present in the input file {in_file}: {missing_vars}',
+                category=UserWarning,
+                stacklevel=2,
             )
+
+        # Variables available in the file
+        variables = [v for v in variables if v not in missing_vars]
 
         # Select the requested variables:
         ds_subset = ds[variables]

@@ -7,7 +7,7 @@ name = "hrrr-data"
 version = "2.3.17"
 description = "A toolkit for accessing, downloading, and processing HRRR Lite data"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 authors = [{ name = "Jan Kazil" }]

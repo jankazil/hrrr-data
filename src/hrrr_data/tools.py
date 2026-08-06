@@ -363,7 +363,7 @@ def nc2nc_process_wind_speed(nc_file: Path):
     if all(alt_dim in wind_var.dims for wind_var in wind_vars):
         seen_names = set()
 
-        for alt_i in range(ds.sizes[alt_dim]):
+        for alt_i in range(1):
             alt_value = ds[alt_dim][alt_i].item()
             alt_string_int = str(int(np.round(alt_value)))
             alt_string_float = str(np.round(alt_value, 3))
@@ -442,7 +442,6 @@ def extract_select_sfc_vars_to_netcdf(
     VARIABLES = [
         "TMP_P0_L103_GLC0",
         "DPT_P0_L103_GLC0",
-        "RH_P0_L103_GLC0",
         "UGRD_P0_L103_GLC0",
         "VGRD_P0_L103_GLC0",
         "APCP_P8_L1_GLC0_acc1h",
@@ -451,7 +450,6 @@ def extract_select_sfc_vars_to_netcdf(
     LONG_NAMES = [
         "Air temperature at 2 m above ground",
         "Dew point temperature at 2 m above ground",
-        "Relative humidity at 2 m above ground",
         "West-east wind speed",
         "South-north wind speed",
         "1 h accumulated precipitation",

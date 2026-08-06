@@ -8,7 +8,6 @@ dependencies:
   - wheel
   - mamba
 
-  # Runtime dependencies mirrored from pyproject.toml.
   - cartopy
   - matplotlib
   - ncl
@@ -18,9 +17,6 @@ dependencies:
   - requests
   - s3fs
   - xarray
-
-  # Non-Python/runtime tools used by the project environment.
-  - ncl
 
   # Development tooling.
   - pytest

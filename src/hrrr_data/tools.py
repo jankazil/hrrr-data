@@ -2,99 +2,58 @@
 Tools for operations on files in GRIB and netCDF format.
 '''
 
-import os
-import shutil
-import subprocess
-import sys
 import warnings
 from pathlib import Path
 
 import numpy as np
 import pygrib
 import xarray as xr
+from netCDF4 import Dataset
 
+# GRIB fields to extract into netCDF files
 
-def active_python_env_subprocess_env() -> dict[str, str]:
-    '''
-    Return a subprocess environment consistent with the active Python
-    environment.
-
-    This is needed for Jupyter kernels that use the correct Python executable
-    but inherit an incomplete conda environment, for example a wrong
-    CONDA_PREFIX or PATH.
-    '''
-    env = os.environ.copy()
-
-    env_prefix = Path(sys.prefix)
-    env_bin = env_prefix / 'bin'
-
-    env['CONDA_PREFIX'] = str(env_prefix)
-    env['PATH'] = str(env_bin) + os.pathsep + env.get('PATH', '')
-
-    return env
-
-
-def find_executable(name: str, env_var: str | None = None) -> Path:
-    '''
-    Find an external executable, preferring an explicit override and then the
-    active Python environment.
-
-    The lookup order is:
-
-    1. If ``env_var`` is given and that environment variable is set, interpret its
-       value as the executable path. A leading ``~`` is expanded. If the referenced
-       file exists and is a regular file, that path is returned. If the environment
-       variable is set but does not point to an existing file, a ``RuntimeError`` is
-       raised.
-    2. Look for ``name`` in the ``bin`` directory of the active Python environment,
-       as determined by ``sys.prefix``.
-    3. Fall back to normal ``PATH`` resolution using ``shutil.which``.
-
-    This avoids accidentally using a system executable when Python is running from
-    a virtual environment or conda environment whose ``bin`` directory is not first
-    on ``PATH``. This can occur, for example, in Jupyter kernels that use the
-    correct Python executable but inherit an incomplete shell environment.
-
-    Parameters
-    ----------
-    name : str
-        Name of the executable to find, for example ``'ncl_convert2nc'``.
-    env_var : str or None, optional
-        Name of an environment variable that may contain an explicit path to the
-        executable. If None, no override environment variable is checked.
-        Defaults to None.
-
-    Returns
-    -------
-    Path
-        Path to the resolved executable.
-
-    Raises
-    ------
-    RuntimeError
-        If ``env_var`` is set but does not point to an existing regular file, or if
-        the executable cannot be found in the active Python environment or on
-        ``PATH``.
-    '''
-    if env_var is not None:
-        override = os.environ.get(env_var)
-        if override:
-            exe = Path(override).expanduser()
-            if exe.exists() and exe.is_file():
-                return exe
-            raise RuntimeError(f'{env_var} is set to {override!r}, but that file does not exist.')
-
-    env_bin = Path(sys.prefix) / 'bin' / name
-
-    if env_bin.exists() and env_bin.is_file():
-        return env_bin
-
-    path_exe = shutil.which(name)
-
-    if path_exe is not None:
-        return Path(path_exe)
-
-    raise RuntimeError(f'Could not find executable {name!r}. Expected it in {env_bin} or on PATH.')
+_SFC_GRIB_FIELDS = {
+    'TMP_P0_L103_GLC0': {
+        'long_name': 'Air temperature at 2 m above ground',
+        'selector': {
+            'discipline': 0,
+            'parameterCategory': 0,
+            'parameterNumber': 0,
+            'typeOfLevel': 'heightAboveGround',
+            'level': 2,
+        },
+    },
+    'DPT_P0_L103_GLC0': {
+        'long_name': 'Dew point temperature at 2 m above ground',
+        'selector': {
+            'discipline': 0,
+            'parameterCategory': 0,
+            'parameterNumber': 6,
+            'typeOfLevel': 'heightAboveGround',
+            'level': 2,
+        },
+    },
+    'U10': {
+        'long_name': 'West-east wind speed at 10.0 m',
+        'selector': {
+            'discipline': 0,
+            'parameterCategory': 2,
+            'parameterNumber': 2,
+            'typeOfLevel': 'heightAboveGround',
+            'level': 10,
+        },
+    },
+    'V10': {
+        'long_name': 'South-north wind speed at 10.0 m',
+        'selector': {
+            'discipline': 0,
+            'parameterCategory': 2,
+            'parameterNumber': 3,
+            'typeOfLevel': 'heightAboveGround',
+            'level': 10,
+        },
+    },
+}
 
 
 def grib_list_vars(file: Path) -> dict[str, str]:
@@ -122,35 +81,20 @@ def grib_list_vars(file: Path) -> dict[str, str]:
 
 def grib2nc(grib_file: Path, verbose: bool = False) -> Path:
     '''
-    Convert a GRIB file to netCDF format using ``ncl_convert2nc``.
+    Extract the supported HRRR surface fields from GRIB2 and write netCDF.
 
-    The conversion is performed by the external ``ncl_convert2nc`` executable.
-    The executable is resolved with :func:`find_executable`, which should prefer
-    the executable installed in the active Python environment before falling back
-    to the system ``PATH``. This is important in Jupyter kernels, where the Python
-    interpreter may belong to a conda environment while ``PATH`` may still point to
-    system executables.
-
-    The subprocess is run with an environment adjusted to match the active Python
-    environment. In particular, the active Python environment's ``bin`` directory
-    is prepended to ``PATH`` and ``CONDA_PREFIX`` is set from ``sys.prefix``. This
-    avoids failures in Jupyter kernels that use the correct Python executable but
-    inherit incomplete or incorrect conda environment variables.
-
-    The input path is expanded and resolved before conversion. The output file is
-    written to the same directory as ``grib_file`` and has the same stem with a
-    ``.nc`` suffix. If a file with that name already exists, ``ncl_convert2nc`` may
-    overwrite it.
+    The GRIB messages are selected with ``pygrib.open.select`` using numerical
+    GRIB2 parameter identifiers, level type, and level. In particular, U10 and
+    V10 are selected directly at 10 m rather than by relying on the ordering of
+    a combined height dimension.
 
     Parameters
     ----------
     grib_file : Path
         Local path to the input GRIB file.
     verbose : bool, optional
-        If True, print diagnostic information, including the resolved
-        ``ncl_convert2nc`` executable, the command being run, the expected output
-        file, the subprocess return code, and any captured stdout/stderr.
-        Defaults to False.
+        If True, print the selected GRIB messages and output path. Defaults to
+        False.
 
     Returns
     -------
@@ -159,73 +103,89 @@ def grib2nc(grib_file: Path, verbose: bool = False) -> Path:
 
     Raises
     ------
-    RuntimeError
-        If ``ncl_convert2nc`` exits with a nonzero return code.
     FileNotFoundError
-        If ``ncl_convert2nc`` completes successfully but the expected netCDF output
-        file is not created.
-
-    Notes
-    -----
-    This function checks both the subprocess return code and the existence of the
-    expected output file. This avoids masking failures from ``ncl_convert2nc`` as
-    later file-operation errors. If the expected output is missing, the error
-    message includes nearby files and captured subprocess output to help diagnose
-    whether ``ncl_convert2nc`` wrote a differently named file or failed silently.
+        If the input GRIB file does not exist.
+    ValueError
+        If any required field is missing or has more than one matching message,
+        or if the selected fields do not use the same horizontal grid.
     '''
-
-    exe = find_executable('ncl_convert2nc')
-
     grib_file = grib_file.expanduser().resolve()
-    output_dir = grib_file.parent
-    output_file = output_dir / (grib_file.stem + '.nc')
+    if not grib_file.is_file():
+        raise FileNotFoundError(f'GRIB file does not exist: {grib_file}')
 
-    cmd = [str(exe), str(grib_file), '-o', str(output_dir)]
+    output_file = grib_file.with_suffix('.nc')
+    temporary_output_file = output_file.with_name(output_file.name + '.tmp')
 
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        env=active_python_env_subprocess_env(),
-    )
+    try:
+        if temporary_output_file.exists():
+            temporary_output_file.unlink()
+
+        with (
+            pygrib.open(str(grib_file)) as grbs,
+            Dataset(temporary_output_file, mode='w', format='NETCDF4') as nc,
+        ):
+            nc.setncatts(
+                {
+                    'model': 'HRRR',
+                    'processed_with': 'https://github.com/jankazil/hrrr-data',
+                }
+            )
+
+            reference_shape = None
+
+            for variable, field in _SFC_GRIB_FIELDS.items():
+                grb = _select_one_grib_message(grbs, variable, field['selector'])
+                shape = (grb.Ny, grb.Nx)
+
+                if reference_shape is None:
+                    reference_shape = shape
+                    nc.createDimension('ygrid_0', shape[0])
+                    nc.createDimension('xgrid_0', shape[1])
+
+                    latitude, longitude = grb.latlons()
+
+                    latitude_out = nc.createVariable(
+                        'gridlat_0', np.float32, ('ygrid_0', 'xgrid_0')
+                    )
+                    latitude_out.setncatts({'long_name': 'latitude', 'units': 'degrees_north'})
+                    latitude_out[:] = np.asarray(latitude, dtype=np.float32)
+                    del latitude, latitude_out
+
+                    longitude_out = nc.createVariable(
+                        'gridlon_0', np.float32, ('ygrid_0', 'xgrid_0')
+                    )
+                    longitude_out.setncatts({'long_name': 'longitude', 'units': 'degrees_east'})
+                    longitude_out[:] = np.asarray(longitude, dtype=np.float32)
+                    del longitude, longitude_out
+                elif shape != reference_shape:
+                    raise ValueError(
+                        f'GRIB message {variable!r} has shape {shape}, expected {reference_shape}'
+                    )
+
+                variable_out = nc.createVariable(
+                    variable,
+                    np.float32,
+                    ('ygrid_0', 'xgrid_0'),
+                    fill_value=np.float32(9.96921e36),
+                )
+                attrs = _grib_message_attrs(grb, field['long_name'])
+                attrs['coordinates'] = 'gridlat_0 gridlon_0'
+                variable_out.setncatts(attrs)
+
+                values = np.ma.asarray(grb.values, dtype=np.float32)
+                variable_out[:] = values
+                del values, variable_out
+
+                if verbose:
+                    print('selected:', variable, grb, flush=True)
+
+        temporary_output_file.replace(output_file)
+    finally:
+        if temporary_output_file.exists():
+            temporary_output_file.unlink()
 
     if verbose:
-        print()
-        print('running ncl_convert2nc')
-        print('executable:', exe)
-        print('command:', cmd)
-        print('expected output:', output_file)
-        print('return code:', result.returncode)
-        if result.stdout:
-            print(result.stdout)
-        if result.stderr:
-            print(result.stderr)
-
-    if result.returncode != 0:
-        raise RuntimeError(
-            'ncl_convert2nc failed\n'
-            f'executable: {exe}\n'
-            f'command: {cmd}\n'
-            f'return code: {result.returncode}\n'
-            f'stdout:\n{result.stdout}\n'
-            f'stderr:\n{result.stderr}'
-        )
-
-    if not output_file.exists():
-        similar_files = sorted(output_dir.glob(grib_file.stem + '*.nc'))
-        nearby_files = sorted(output_dir.glob(grib_file.stem + '*'))
-
-        raise FileNotFoundError(
-            'ncl_convert2nc completed, but did not create the expected file\n'
-            f'executable: {exe}\n'
-            f'command: {cmd}\n'
-            f'expected output: {output_file}\n'
-            f'output directory: {output_dir}\n'
-            f'similar netCDF files: {similar_files}\n'
-            f'nearby files: {nearby_files}\n'
-            f'stdout:\n{result.stdout}\n'
-            f'stderr:\n{result.stderr}'
-        )
+        print('created:', output_file, flush=True)
 
     return output_file
 
@@ -419,9 +379,8 @@ def extract_select_sfc_vars_to_netcdf(
 
     This function first checks whether a processed netCDF file already exists for the given GRIB input.
     If not, or if reprocessing is requested, it converts the GRIB file to netCDF format, extracts key
-    near-surface variables such as temperature, dew point, humidity, wind components, and precipitation,
-    adds descriptive metadata, computes derived wind speed fields, and writes the results to a new
-    netCDF file in the same directory.
+    near-surface variables such as temperature, dew point, wind components, adds descriptive metadata,
+    computes derived wind speed fields, and writes the results to a new netCDF file in the same directory.
 
     Parameters
     ----------
@@ -439,27 +398,6 @@ def extract_select_sfc_vars_to_netcdf(
         Path to the resulting netCDF file containing the selected surface variables.
     '''
 
-    VARIABLES = [
-        "TMP_P0_L103_GLC0",
-        "DPT_P0_L103_GLC0",
-        "UGRD_P0_L103_GLC0",
-        "VGRD_P0_L103_GLC0",
-        "APCP_P8_L1_GLC0_acc1h",
-    ]
-
-    LONG_NAMES = [
-        "Air temperature at 2 m above ground",
-        "Dew point temperature at 2 m above ground",
-        "West-east wind speed",
-        "South-north wind speed",
-        "1 h accumulated precipitation",
-    ]
-
-    GLOBAL_ATTRS = {
-        "model": "HRRR",
-        "processed_with": "https://github.com/jankazil/hrrr-data",
-    }
-
     # netCDF file to be created
     ncfile = grib_file.with_suffix('.nc')
 
@@ -474,24 +412,7 @@ def extract_select_sfc_vars_to_netcdf(
                 flush=True,
             )
 
-        # Convert GRIB to netCDF
-        ncfile_full = grib2nc(grib_file, verbose=verbose)
-
-        # Rename the netCDF file, then extract selected vars to the final netCDF file
-        ncfile_tmp = ncfile_full.with_name(ncfile_full.name + '.tmp')
-        ncfile_full.replace(ncfile_tmp)
-
-        nc2nc_extract_vars(
-            ncfile_tmp,
-            ncfile,
-            VARIABLES,
-            long_names=LONG_NAMES,
-            global_attributes=GLOBAL_ATTRS,
-        )
-
-        nc2nc_process_wind_speed(ncfile)
-
-        ncfile_tmp.unlink()
+        grib2nc(grib_file, verbose=verbose)
 
     else:
         if verbose:
@@ -507,3 +428,44 @@ def extract_select_sfc_vars_to_netcdf(
             )
 
     return ncfile
+
+
+def _select_one_grib_message(grbs, variable: str, selector: dict[str, object]):
+    '''Select exactly one GRIB message using the supplied ecCodes keys.'''
+    try:
+        messages = grbs.select(**selector)
+    except ValueError:
+        messages = []
+
+    if len(messages) != 1:
+        raise ValueError(
+            f'Expected one GRIB message for {variable!r}, found {len(messages)}; '
+            f'selector: {selector}'
+        )
+
+    return messages[0]
+
+
+def _grib_message_attrs(grb, long_name: str) -> dict[str, str | int | list[int]]:
+    '''Return the metadata needed by the existing plotting and analysis code.'''
+    forecast_time = int(round((grb.validDate - grb.analDate).total_seconds() / 3600))
+    units = 'm/s' if grb.units == 'm s**-1' else grb.units
+
+    return {
+        'initial_time': grb.analDate.strftime('%m/%d/%Y (%H:%M)'),
+        'forecast_time_units': 'hours',
+        'forecast_time': forecast_time,
+        'level_type': grb.typeOfLevel,
+        'parameter_template_discipline_category_number': [
+            grb.productDefinitionTemplateNumber,
+            grb.discipline,
+            grb.parameterCategory,
+            grb.parameterNumber,
+        ],
+        'parameter_discipline_and_category': [grb.discipline, grb.parameterCategory],
+        'grid_type': grb.gridType,
+        'units': units,
+        'production_status': grb.productionStatusOfProcessedData,
+        'center': grb.centreDescription,
+        'long_name': long_name,
+    }

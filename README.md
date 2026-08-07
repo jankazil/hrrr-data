@@ -35,9 +35,7 @@ The pre-defined variables extracted and saved in netCDF files are:
 
   - Air temperature at 2 m above ground
   - Dew point temperature at 2 m above ground
-  - Relative humidity at 2 m above ground
-  - Wind speed at 10 m and 80 m above ground
-  - 1 h accumulated precipitation
+  - Wind speed at 10 m above ground
 
 ## Workflow
 
@@ -73,7 +71,7 @@ hrrr-fetch-sfc-forecast START_YEAR START_MONTH START_DAY END_YEAR END_MONTH END_
 **Options:**
 
 - `-n N_JOBS, --n N_JOBS`: number of parallel download processes  
-- `-e, --extract`: extract selected surface variables (temperature, humidity, wind, precipitation) into a netCDF file  
+- `-e, --extract`: extract selected surface variables (temperature, dewpoint temperature, U and V wind speed) into a netCDF file
 - `-r, --refresh`: download and process files even if they already exist in the data directory  
 - `-v, --verbose`: print detailed progress information  
 
@@ -127,9 +125,9 @@ hrrr-plot-singlelevel-conus /path/to/file.nc
 
 **Example:**
 
-  Relative humidity at 2 m forecast for 2025-07-01 20:00:00 UTC, 32 h forecast lead time:
+  Temperature at 2 m, forecast for 2026-03-01 18:00:00 UTC, 12 h forecast lead time:
 
-![Relative humidity at 2 m, 1 July 2025](plots/hrrr.t12z.wrfsfcf32.RH_P0_L103_GLC0.png)  
+![Temperature at 2 m, forecast for 2026-03-01 18:00:00 UTC, 12 h forecast lead time](plots/hrrr.t06z.wrfsfcf12.TMP_P0_L103_GLC0.png)
 
 
 ## Modules
@@ -143,7 +141,7 @@ hrrr-plot-singlelevel-conus /path/to/file.nc
 
 - **`tools.py`**: Utilities for working with HRRR data in GRIB2 and netCDF formats, including:
   - Listing variables in GRIB2 files (`pygrib`)
-  - Converting GRIB2 files to netCDF using `ncl_convert2nc`
+  - Converting GRIB2 files to netCDF
   - Extracting pre-defined variables from netCDF files using `xarray`
   - Retrieving the metadata for a HRRR file in S3
 

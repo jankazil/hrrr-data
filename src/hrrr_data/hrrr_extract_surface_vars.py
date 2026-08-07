@@ -23,7 +23,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         prog="hrrr-extract-sfc-vars",
         description=(
             "Extract from a local HRRR GRIB2 a predefined set of surface variables "
-            "(temperature, humidity, wind, precipitation) and save them in a new netCDF file."
+            "(2m temperature, 2m dewpoint temperature, 10 m U and V wind speed) and save them in a new netCDF file."
         ),
     )
     parser.add_argument(

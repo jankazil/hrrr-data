@@ -53,6 +53,18 @@ _SFC_GRIB_FIELDS = {
             'level': 10,
         },
     },
+    'APCP_P8_L1_GLC0_acc1h': {
+        'long_name': 'Total precipitation accumulated over 1 hour',
+        'selector': {
+            'discipline': 0,
+            'parameterCategory': 1,
+            'parameterNumber': 8,
+            'typeOfLevel': 'surface',
+            'level': 0,
+            'stepType': 'accum',
+            'lengthOfTimeRange': 1,
+        },
+    },
 }
 
 

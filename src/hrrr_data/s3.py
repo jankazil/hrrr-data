@@ -1,5 +1,6 @@
-"""
-Tools for operations on HRRR data files (in GRIB format) on S3 (Amazon Simple Storage System).
+'''
+Tools for operations on HRRR data in GRIB and Zarr formats on S3
+(Amazon Simple Storage System).
 
 S3 does not have a true directory structure.
 
@@ -8,7 +9,7 @@ Each object in S3 is stored as a key-object pair, where:
 The key is a unique string that identifies the object (like a file path).
 
 In this module, we refer to the "keys" as "paths", and they are relative to the NOAA HRRR bucket.
-"""
+'''
 
 import hashlib
 import warnings
@@ -20,9 +21,78 @@ import s3fs
 
 BUCKET = 'noaa-hrrr-bdp-pds'
 
+_ZARR_BUCKET = 'hrrrzarr'
+_ZARR_FORECAST_START = datetime(2018, 7, 12, 18)
+_ZARR_GRID_PATH = 'grid/HRRR_chunk_index.zarr'
+
+
+def validate_zarr_forecast_request(
+    start_date: datetime,
+    end_date: datetime,
+    init_hour: int,
+    first_forecast_lead_hour: int,
+    last_forecast_lead_hour: int,
+    region: str,
+    n_jobs: int | None,
+) -> None:
+    '''Validate a request for data from the traditional HRRR Zarr archive.'''
+
+    if start_date > end_date:
+        raise ValueError('Start date must be earlier than or equal to end date')
+    if init_hour < 0 or init_hour > 23:
+        raise ValueError('Forecast initialization hour must be between 0 and 23')
+    if first_forecast_lead_hour < 1:
+        raise ValueError(
+            'First forecast lead hour must be at least 1. Forecast hour 0 is '
+            'stored separately as an analysis and is not supported.'
+        )
+    if last_forecast_lead_hour < first_forecast_lead_hour:
+        raise ValueError(
+            'Last forecast lead hour must be greater than or equal to first forecast lead hour'
+        )
+    if region.lower() != 'conus':
+        raise ValueError("The traditional HRRR Zarr forecast archive supports only region 'conus'")
+    if n_jobs is not None and n_jobs < 1:
+        raise ValueError('Number of parallel jobs must be at least 1')
+
+    first_initialization = datetime(start_date.year, start_date.month, start_date.day, init_hour)
+    if first_initialization < _ZARR_FORECAST_START:
+        raise ValueError(
+            'The traditional HRRR Zarr forecast archive begins at '
+            f'{_ZARR_FORECAST_START:%Y-%m-%d %H} UTC'
+        )
+
+
+def zarr_forecast_store(date: datetime, init_hour: int) -> tuple[s3fs.S3Map, str]:
+    '''Open one traditional HRRR forecast Zarr store for anonymous access.'''
+
+    zarr_path = _zarr_forecast_path(date, init_hour)
+    zarr_url = 's3://' + _ZARR_BUCKET + '/' + zarr_path
+    fs = s3fs.S3FileSystem(anon=True)
+
+    if not fs.exists(zarr_url + '/.zmetadata'):
+        raise FileNotFoundError('HRRR Zarr forecast store is unavailable: ' + zarr_url)
+
+    return s3fs.S3Map(root=zarr_url, s3=fs, check=False), zarr_url
+
+
+def zarr_grid_store() -> s3fs.S3Map:
+    '''Open the static HRRR CONUS latitude and longitude Zarr store.'''
+
+    grid_url = 's3://' + _ZARR_BUCKET + '/' + _ZARR_GRID_PATH
+    fs = s3fs.S3FileSystem(anon=True)
+    return s3fs.S3Map(root=grid_url, s3=fs, check=False)
+
+
+def _zarr_forecast_path(date: datetime, init_hour: int) -> str:
+    '''Construct the S3 path of one traditional HRRR forecast Zarr store.'''
+
+    date_string = date.strftime('%Y%m%d')
+    return 'sfc/' + date_string + '/' + date_string + '_' + str(init_hour).zfill(2) + 'z_fcst.zarr'
+
 
 def ls(path: str) -> list[str]:
-    """
+    '''
     List the contents of an S3 path.
 
     Args:
@@ -34,7 +104,7 @@ def ls(path: str) -> list[str]:
 
     Returns:
         list: List of path contents.
-    """
+    '''
 
     # Access S3
     fs = s3fs.S3FileSystem(anon=True)
@@ -51,7 +121,7 @@ def ls(path: str) -> list[str]:
 
 
 def ls_re(path: str) -> list[str]:
-    """
+    '''
     List the contents of an S3 path, allowing wildcards.
 
     Args:
@@ -64,7 +134,7 @@ def ls_re(path: str) -> list[str]:
 
     Returns:
         list: List of path contents.
-    """
+    '''
 
     # Access S3
     fs = s3fs.S3FileSystem(anon=True)
@@ -84,7 +154,7 @@ def ls_re(path: str) -> list[str]:
 
 
 def download(hrrr_file: str, local_dir: Path, refresh: bool = False, verbose: bool = False) -> Path:
-    """
+    '''
     Download a HRRR data file from S3, unless it already exists in the local directory.
 
     Args:
@@ -95,7 +165,7 @@ def download(hrrr_file: str, local_dir: Path, refresh: bool = False, verbose: bo
 
     Returns:
         Path: Local path of the downloaded file.
-    """
+    '''
 
     # Create local directory unless it exists
     path = Path(local_dir)
@@ -155,7 +225,7 @@ def download_threaded(
     n_jobs: int = 1,
     verbose: bool = False,
 ) -> Path:
-    """
+    '''
      Download a list of HRRR data file from S3, except those that already exists in the local directory,
      in parallel.
 
@@ -167,7 +237,7 @@ def download_threaded(
         verbose (bool, optional): If True, print detailed progress information to stdout. Defaults to False.
     Returns:
         list[str]: List of local paths of the downloaded files.
-    """
+    '''
 
     if n_jobs is None:
         n_jobs = 1
@@ -201,7 +271,7 @@ def download_date_range(
     n_jobs: int = 1,
     verbose: bool = False,
 ) -> list[Path]:
-    """
+    '''
     Downloads HRRR data files from S3 starting between (inclusive) given start and end dates,
     in parallel
 
@@ -219,7 +289,7 @@ def download_date_range(
 
     Returns:
         list[Path]: List of local paths of the downloaded files.
-    """
+    '''
 
     # Construct the paths (S3 keys) of the data files
 
@@ -257,7 +327,7 @@ def download_date_range(
 
 
 def info(hrrr_file: str) -> dict:
-    """
+    '''
 
     Retrieves properties of an object in the S3 HRRR bucket.
 
@@ -272,7 +342,7 @@ def info(hrrr_file: str) -> dict:
               The units of size are bytes, the time is given as UTC,
               at the time of writing this code.
 
-    """
+    '''
 
     fs = s3fs.S3FileSystem(anon=True)
     info = fs.info(BUCKET + '/' + hrrr_file)
@@ -281,7 +351,7 @@ def info(hrrr_file: str) -> dict:
 
 
 def md5sum(local_file: Path):
-    """Compute the MD5 hash of a file's contents.
+    '''Compute the MD5 hash of a file's contents.
 
     This function reads the file in binary mode and processes it in
     fixed-size chunks to compute the MD5 checksum efficiently, without
@@ -293,7 +363,7 @@ def md5sum(local_file: Path):
     Returns:
         str: Hexadecimal MD5 hash of the file contents.
 
-    """
+    '''
 
     h = hashlib.md5()
 

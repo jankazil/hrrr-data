@@ -1,14 +1,18 @@
 '''
-Tools for operations on files in GRIB and netCDF format.
+Tools for operations on data in GRIB, Zarr, and netCDF formats.
 '''
 
 import warnings
+from contextlib import ExitStack
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 import pygrib
 import xarray as xr
 from netCDF4 import Dataset
+
+from hrrr_data import s3
 
 # GRIB fields to extract into netCDF files
 
@@ -66,6 +70,67 @@ _SFC_GRIB_FIELDS = {
         },
     },
 }
+
+
+# Zarr fields to extract into netCDF files. Forecast hour 0 is not included in
+# these forecast arrays; it is stored separately in an analysis Zarr store.
+
+_SFC_ZARR_FIELDS = {
+    'TMP_P0_L103_GLC0': {
+        'zarr_group': '2m_above_ground/TMP/2m_above_ground',
+        'zarr_variable': 'TMP',
+        'long_name': 'Air temperature at 2 m above ground',
+        'level_type': 'heightAboveGround',
+        'parameter_category': 0,
+        'parameter_number': 0,
+        'product_definition_template': 0,
+        'units': 'K',
+    },
+    'DPT_P0_L103_GLC0': {
+        'zarr_group': '2m_above_ground/DPT/2m_above_ground',
+        'zarr_variable': 'DPT',
+        'long_name': 'Dew point temperature at 2 m above ground',
+        'level_type': 'heightAboveGround',
+        'parameter_category': 0,
+        'parameter_number': 6,
+        'product_definition_template': 0,
+        'units': 'K',
+    },
+    'U10': {
+        'zarr_group': '10m_above_ground/UGRD/10m_above_ground',
+        'zarr_variable': 'UGRD',
+        'long_name': 'West-east wind speed at 10.0 m',
+        'level_type': 'heightAboveGround',
+        'parameter_category': 2,
+        'parameter_number': 2,
+        'product_definition_template': 0,
+        'units': 'm/s',
+    },
+    'V10': {
+        'zarr_group': '10m_above_ground/VGRD/10m_above_ground',
+        'zarr_variable': 'VGRD',
+        'long_name': 'South-north wind speed at 10.0 m',
+        'level_type': 'heightAboveGround',
+        'parameter_category': 2,
+        'parameter_number': 3,
+        'product_definition_template': 0,
+        'units': 'm/s',
+    },
+    'APCP_P8_L1_GLC0_acc1h': {
+        'zarr_group': 'surface/APCP_1hr_acc_fcst/surface',
+        'zarr_variable': 'APCP_1hr_acc_fcst',
+        'long_name': 'Total precipitation accumulated over 1 hour',
+        'level_type': 'surface',
+        'parameter_category': 1,
+        'parameter_number': 8,
+        'product_definition_template': 8,
+        'units': 'kg m**-2',
+    },
+}
+
+
+_GRID_LATITUDE: np.ndarray | None = None
+_GRID_LONGITUDE: np.ndarray | None = None
 
 
 def grib_list_vars(file: Path) -> dict[str, str]:
@@ -223,7 +288,7 @@ def nc2nc_extract_vars(
         long_names (list of str | None, optional):
             Descriptive names for the extracted variables, aligned by position to `variables`.
             If provided, the list length must match `variables`. A value of None leaves the
-            variable’s `long_name` unchanged. Defaults to None.
+            variable's `long_name` unchanged. Defaults to None.
         global_attributes (dict[str, str | None], optional):
             Global attributes to set in the output dataset. Keys are attribute names and
             values are attribute values. A value of None leaves that attribute unchanged.
@@ -442,6 +507,124 @@ def extract_select_sfc_vars_to_netcdf(
     return ncfile
 
 
+def extract_select_sfc_zarr_vars_to_netcdf(
+    date: datetime,
+    init_hour: int,
+    first_forecast_lead_hour: int,
+    last_forecast_lead_hour: int,
+    region: str,
+    local_dir: Path,
+    refresh: bool = False,
+    verbose: bool = False,
+) -> list[Path]:
+    '''
+    Read selected surface variables from one HRRR forecast Zarr store and
+    create one compatible netCDF file per requested forecast hour.
+
+    The forecast-hour range is inclusive and must begin at hour 1 or later.
+    Forecast hour 0 is stored separately as an analysis and is not supported.
+
+    Parameters
+    ----------
+    date : datetime
+        Date on which the forecast was initialized.
+    init_hour : int
+        Forecast initialization hour in UTC.
+    first_forecast_lead_hour : int
+        First forecast lead hour to write, inclusive.
+    last_forecast_lead_hour : int
+        Last forecast lead hour to write, inclusive.
+    region : str
+        Geographic region identifier. The traditional Zarr archive supports
+        only ``'conus'``.
+    local_dir : Path
+        Directory in which the netCDF files will be created.
+    refresh : bool, optional
+        If True, recreate files that already exist. Defaults to False.
+    verbose : bool, optional
+        If True, print progress messages. Defaults to False.
+
+    Returns
+    -------
+    list[Path]
+        Paths of all requested netCDF files, including existing files retained
+        when ``refresh`` is False.
+    '''
+
+    output_files = [
+        _zarr_netcdf_path(local_dir, date, init_hour, forecast_lead_hour, region)
+        for forecast_lead_hour in range(first_forecast_lead_hour, last_forecast_lead_hour + 1)
+    ]
+
+    files_to_create = [
+        output_file for output_file in output_files if refresh or not output_file.exists()
+    ]
+
+    if not files_to_create:
+        if verbose:
+            print(
+                'All requested netCDF files already exist for the HRRR forecast '
+                f'initialized on {date:%Y-%m-%d} at {init_hour:02d} UTC. '
+                'Skipping remote Zarr access.',
+                flush=True,
+            )
+        return output_files
+
+    if verbose:
+        print(
+            'Reading from the HRRR Zarr archive the inclusive forecast-hour range',
+            f'{first_forecast_lead_hour}-{last_forecast_lead_hour}',
+            'for the forecast initialized on',
+            f'{date:%Y-%m-%d} at {init_hour:02d} UTC.',
+            'Forecast hour 0 is not supported by this script.',
+            flush=True,
+        )
+
+    store, zarr_url = s3.zarr_forecast_store(date, init_hour)
+
+    coordinate_group = '2m_above_ground/TMP'
+    with xr.open_zarr(
+        store,
+        group=coordinate_group,
+        consolidated=True,
+        chunks=None,
+        decode_times=False,
+        mask_and_scale=False,
+    ) as coordinate_ds:
+        forecast_periods = np.asarray(coordinate_ds['forecast_period'].values, dtype=np.int64)
+
+    lead_indices = _zarr_forecast_lead_indices(
+        forecast_periods,
+        first_forecast_lead_hour,
+        last_forecast_lead_hour,
+        zarr_url,
+    )
+
+    latitude, longitude = _load_zarr_grid_coordinates()
+    requested_output = {
+        forecast_lead_hour: output_file
+        for forecast_lead_hour, output_file in zip(
+            range(first_forecast_lead_hour, last_forecast_lead_hour + 1),
+            output_files,
+            strict=True,
+        )
+        if refresh or not output_file.exists()
+    }
+
+    _write_zarr_netcdf_files(
+        store,
+        date,
+        init_hour,
+        lead_indices,
+        requested_output,
+        latitude,
+        longitude,
+        verbose,
+    )
+
+    return output_files
+
+
 def _select_one_grib_message(grbs, variable: str, selector: dict[str, object]):
     '''Select exactly one GRIB message using the supplied ecCodes keys.'''
     try:
@@ -481,3 +664,270 @@ def _grib_message_attrs(grb, long_name: str) -> dict[str, str | int | list[int]]
         'center': grb.centreDescription,
         'long_name': long_name,
     }
+
+
+def _write_zarr_netcdf_files(
+    store,
+    date: datetime,
+    init_hour: int,
+    lead_indices: dict[int, int],
+    requested_output: dict[int, Path],
+    latitude: np.ndarray,
+    longitude: np.ndarray,
+    verbose: bool,
+) -> None:
+    '''Write selected Zarr forecast periods to separate, atomic netCDF files.'''
+
+    temporary_files = {
+        forecast_lead_hour: output_file.with_name(output_file.name + '.tmp')
+        for forecast_lead_hour, output_file in requested_output.items()
+    }
+
+    for output_file in requested_output.values():
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        for temporary_file in temporary_files.values():
+            if temporary_file.exists():
+                temporary_file.unlink()
+
+        with ExitStack() as stack:
+            netcdf_files = {
+                forecast_lead_hour: stack.enter_context(
+                    Dataset(temporary_file, mode='w', format='NETCDF4')
+                )
+                for forecast_lead_hour, temporary_file in temporary_files.items()
+            }
+
+            for netcdf_file in netcdf_files.values():
+                _initialize_zarr_netcdf_file(netcdf_file, latitude, longitude)
+
+            first_index = min(lead_indices.values())
+            last_index = max(lead_indices.values())
+            zarr_time_slice = slice(first_index, last_index + 1)
+
+            for variable, field in _SFC_ZARR_FIELDS.items():
+                with xr.open_zarr(
+                    store,
+                    group=field['zarr_group'],
+                    consolidated=True,
+                    chunks=None,
+                    decode_times=False,
+                    mask_and_scale=False,
+                ) as field_ds:
+                    zarr_variable = field_ds[field['zarr_variable']]
+                    _validate_zarr_variable(zarr_variable, variable, latitude.shape)
+
+                    values = np.asarray(
+                        zarr_variable.isel(time=zarr_time_slice).values,
+                        dtype=np.float32,
+                    )
+                    zarr_fill_value = zarr_variable.encoding.get(
+                        '_FillValue', zarr_variable.attrs.get('_FillValue')
+                    )
+
+                for forecast_lead_hour, netcdf_file in netcdf_files.items():
+                    variable_out = netcdf_file.createVariable(
+                        variable,
+                        np.float32,
+                        ('ygrid_0', 'xgrid_0'),
+                        fill_value=np.float32(9.96921e36),
+                    )
+                    variable_out.setncatts(
+                        _zarr_variable_attributes(field, date, init_hour, forecast_lead_hour)
+                    )
+
+                    relative_index = lead_indices[forecast_lead_hour] - first_index
+                    variable_out[:] = _masked_zarr_values(values[relative_index], zarr_fill_value)
+
+                    if verbose:
+                        print(
+                            'Selected:',
+                            variable,
+                            f'forecast hour {forecast_lead_hour}',
+                            flush=True,
+                        )
+
+                del values
+
+        for forecast_lead_hour, temporary_file in temporary_files.items():
+            output_file = requested_output[forecast_lead_hour]
+            temporary_file.replace(output_file)
+            if verbose:
+                print('Created:', output_file, flush=True)
+
+    finally:
+        for temporary_file in temporary_files.values():
+            if temporary_file.exists():
+                temporary_file.unlink()
+
+
+def _initialize_zarr_netcdf_file(
+    netcdf_file: Dataset,
+    latitude: np.ndarray,
+    longitude: np.ndarray,
+) -> None:
+    '''Initialize dimensions, coordinates, and global metadata in a netCDF file.'''
+
+    netcdf_file.setncatts(
+        {
+            'model': 'HRRR',
+            'processed_with': 'https://github.com/jankazil/hrrr-data',
+            'source_format': 'Zarr',
+            'source_archive': 's3://hrrrzarr',
+        }
+    )
+
+    netcdf_file.createDimension('ygrid_0', latitude.shape[0])
+    netcdf_file.createDimension('xgrid_0', latitude.shape[1])
+
+    latitude_out = netcdf_file.createVariable('gridlat_0', np.float32, ('ygrid_0', 'xgrid_0'))
+    latitude_out.setncatts({'long_name': 'latitude', 'units': 'degrees_north'})
+    latitude_out[:] = latitude
+
+    longitude_out = netcdf_file.createVariable('gridlon_0', np.float32, ('ygrid_0', 'xgrid_0'))
+    longitude_out.setncatts({'long_name': 'longitude', 'units': 'degrees_east'})
+    longitude_out[:] = longitude
+
+
+def _zarr_variable_attributes(
+    field: dict[str, object],
+    date: datetime,
+    init_hour: int,
+    forecast_lead_hour: int,
+) -> dict[str, str | int | list[int]]:
+    '''Return metadata compatible with the existing GRIB-to-netCDF output.'''
+
+    initialization = datetime(date.year, date.month, date.day, init_hour)
+    parameter_category = int(field['parameter_category'])
+    parameter_number = int(field['parameter_number'])
+
+    return {
+        'initial_time': initialization.strftime('%m/%d/%Y (%H:%M)'),
+        'forecast_time_units': 'hours',
+        'forecast_time': forecast_lead_hour,
+        'level_type': str(field['level_type']),
+        'parameter_template_discipline_category_number': [
+            int(field['product_definition_template']),
+            0,
+            parameter_category,
+            parameter_number,
+        ],
+        'parameter_discipline_and_category': [0, parameter_category],
+        'grid_type': 'lambert',
+        'units': str(field['units']),
+        'production_status': 0,
+        'center': 'US National Weather Service - NCEP',
+        'long_name': str(field['long_name']),
+        'coordinates': 'gridlat_0 gridlon_0',
+    }
+
+
+def _load_zarr_grid_coordinates() -> tuple[np.ndarray, np.ndarray]:
+    '''Load and cache the static HRRR CONUS latitude and longitude grids.'''
+
+    global _GRID_LATITUDE, _GRID_LONGITUDE
+
+    if _GRID_LATITUDE is None or _GRID_LONGITUDE is None:
+        grid_store = s3.zarr_grid_store()
+
+        with xr.open_zarr(
+            grid_store,
+            consolidated=True,
+            chunks=None,
+            decode_times=False,
+            mask_and_scale=False,
+        ) as grid_ds:
+            _GRID_LATITUDE = np.asarray(grid_ds['latitude'].values, dtype=np.float32)
+            _GRID_LONGITUDE = np.asarray(grid_ds['longitude'].values, dtype=np.float32)
+
+    return _GRID_LATITUDE, _GRID_LONGITUDE
+
+
+def _zarr_forecast_lead_indices(
+    forecast_periods: np.ndarray,
+    first_forecast_lead_hour: int,
+    last_forecast_lead_hour: int,
+    zarr_url: str,
+) -> dict[int, int]:
+    '''Map requested forecast lead hours to positions in a forecast Zarr store.'''
+
+    period_to_index = {
+        int(forecast_period): index for index, forecast_period in enumerate(forecast_periods)
+    }
+    requested_hours = range(first_forecast_lead_hour, last_forecast_lead_hour + 1)
+    missing_hours = [hour for hour in requested_hours if hour not in period_to_index]
+
+    if missing_hours:
+        if period_to_index:
+            available = f'{min(period_to_index)}-{max(period_to_index)}'
+        else:
+            available = 'none'
+        raise ValueError(
+            f'Forecast hours {missing_hours} are unavailable in {zarr_url}; '
+            f'available forecast hours: {available}. Forecast hour 0 is not '
+            'supported because it is stored separately as an analysis.'
+        )
+
+    lead_indices = {hour: period_to_index[hour] for hour in requested_hours}
+    indices = list(lead_indices.values())
+    if indices != list(range(indices[0], indices[-1] + 1)):
+        raise ValueError('Requested forecast hours are not stored contiguously in ' + zarr_url)
+
+    return lead_indices
+
+
+def _validate_zarr_variable(
+    zarr_variable: xr.DataArray,
+    output_variable: str,
+    expected_shape: tuple[int, int],
+) -> None:
+    '''Validate a remote Zarr variable before it is written to netCDF.'''
+
+    expected_dimensions = (
+        'time',
+        'projection_y_coordinate',
+        'projection_x_coordinate',
+    )
+    if zarr_variable.dims != expected_dimensions:
+        raise ValueError(
+            f'Zarr variable for {output_variable!r} has dimensions '
+            f'{zarr_variable.dims}, expected {expected_dimensions}'
+        )
+
+    if zarr_variable.shape[-2:] != expected_shape:
+        raise ValueError(
+            f'Zarr variable for {output_variable!r} has horizontal shape '
+            f'{zarr_variable.shape[-2:]}, expected {expected_shape}'
+        )
+
+
+def _masked_zarr_values(values: np.ndarray, fill_value: object) -> np.ma.MaskedArray:
+    '''Mask nonfinite values and the Zarr fill value.'''
+
+    mask = ~np.isfinite(values)
+    if fill_value is not None:
+        try:
+            fill_value_float = float(fill_value)
+        except (TypeError, ValueError):
+            fill_value_float = np.nan
+        if np.isfinite(fill_value_float):
+            mask |= values == np.float32(fill_value_float)
+
+    return np.ma.array(values, mask=mask, copy=False)
+
+
+def _zarr_netcdf_path(
+    local_dir: Path,
+    date: datetime,
+    init_hour: int,
+    forecast_lead_hour: int,
+    region: str,
+) -> Path:
+    '''Construct a netCDF path compatible with the existing GRIB workflow.'''
+
+    date_string = date.strftime('%Y%m%d')
+    filename = (
+        'hrrr.t' + str(init_hour).zfill(2) + 'z.wrfsfcf' + str(forecast_lead_hour).zfill(2) + '.nc'
+    )
+    return Path(local_dir) / ('hrrr.' + date_string) / region / filename

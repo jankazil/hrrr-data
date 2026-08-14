@@ -16,6 +16,7 @@ dependencies:
   - requests
   - s3fs
   - xarray
+  - zarr
 
   # Development tooling.
   - pytest

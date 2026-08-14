@@ -20,10 +20,12 @@ dependencies = [
   "requests",
   "s3fs",
   "xarray",
+  "zarr"
 ]
 
 [project.scripts]
 hrrr-fetch-sfc-forecast = "hrrr_data.hrrr_fetch_surface_forecasts:main" # Connects name of executable in $PATH to the python module containing corresponding main()
+hrrr-fetch-sfc-forecast-zarr = "hrrr_data.hrrr_fetch_surface_forecasts_zarr:main" # Connects name of executable in $PATH to the python module containing corresponding main()
 hrrr-extract-sfc-vars = "hrrr_data.hrrr_extract_surface_vars:main" # Connects name of executable in $PATH to the python module containing corresponding main()
 hrrr-plot-singlelevel-conus = "hrrr_data.hrrr_plot_singlelevel_conus:main" # Connects name of executable in $PATH to the python module containing corresponding main()
 

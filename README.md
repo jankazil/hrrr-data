@@ -1,11 +1,12 @@
 # hrrr-data
 
-**hrrr-data** is a Python toolkit for accessing, downloading, and processing High-Resolution Rapid Refresh (HRRR) forecast data from NOAA’s public S3 bucket.
+**hrrr-data** is a Python toolkit for accessing, downloading, and processing High-Resolution Rapid Refresh (HRRR) forecast data from public Amazon Web Services (AWS) S3 archives.
 
 It provides:
 
 - Top-level command-line tools that
   - Download HRRR surface forecast GRIB2 files from NOAA’s public S3 bucket for a specified date range, forecast initialization time, forecast lead time, and region.
+  - Read a range of HRRR surface forecast hours from the public HRRR Zarr archive and save selected variables in one netCDF file per forecast hour.
   - Extract a subset of commonly used variables from the GRIB2 files into netCDF files.
   - Plot single-level (2-D) HRRR variables over CONUS (the contiguous U.S.)
 
@@ -27,6 +28,8 @@ This repository provides the following top-level command-line interface (CLI) sc
 
 - **`hrrr-fetch-sfc-forecast`**: Download HRRR surface forecast GRIB2 files for a given date range, initialization hour, forecast lead time, and region from the NOAA S3 bucket. If requested, a subset of pre-defined variables (temperature, humidity, wind speed, precipitation) is extracted into a netCDF file. Both the GRIB2 and the processed netCDF files are stored locally.
 
+- **`hrrr-fetch-sfc-forecast-zarr`**: Read an inclusive range of HRRR surface forecast hours from the traditional HRRR Zarr archive on AWS S3 and save selected surface variables in one compatible netCDF file per forecast hour. No local Zarr store is created. The command supports CONUS forecasts beginning at forecast hour 1. Downloading a range of forecast hours concurrently using `hrrr-fetch-sfc-forecast-zarr` can be significantly faster than downloading the individual forecast hours individually with `hrrr-fetch-sfc-forecast`. However, `hrrr-fetch-sfc-forecast-zarr` does not support forecast hour 0, for which `hrrr-fetch-sfc-forecast` must be used.
+
 - **`hrrr-extract-sfc-vars`**: Process a single local HRRR GRIB2 file (previously downloaded) by converting it to netCDF and writing a new netCDF file that contains a pre-defined set of variables, with added long names and metadata attributes.
 
 - **`hrrr-plot-singlelevel-conus`**: Create a plot of every HRRR variable that has only the horizontal grid dimensions latitude and longitude in a given HRRR netCDF file, one PNG file per variable. Assumes that the netCDF file contains variables over CONUS.
@@ -43,9 +46,11 @@ The typical workflow is:
 
 1. **Download forecast data** using `hrrr-fetch-sfc-forecast`, specifying the date range, initialization hour, forecast lead time, and region of interest. This fetches the GRIB2 files from the NOAA HRRR S3 bucket, stores them locally, and, if requested, extracts pre-defined variables into netCDF files.
 
-2. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a set of pre-defined variables for analysis.
+2. **Read a range of forecast hours from Zarr** using `hrrr-fetch-sfc-forecast-zarr` when only the selected surface variables are needed. This reads the requested inclusive range directly from the remote Zarr archive and writes one netCDF file per forecast hour without storing Zarr data locally.
 
-3. **Work with the outputs** in standard netCDF format using your preferred scientific Python libraries (`xarray`, `netCDF4`, etc.), integrate them into downstream machine learning and analytics workflows, or plot the data using `hrrr-plot-singlelevel-conus`.
+3. **Extract from a single GRIB2 file** using `hrrr-extract-sfc-vars` when you already have a GRIB2 file available locally and only want to extract a set of pre-defined variables for analysis.
+
+4. **Work with the outputs** in standard netCDF format using your preferred scientific Python libraries (`xarray`, `netCDF4`, etc.), integrate them into downstream machine learning and analytics workflows, or plot the data using `hrrr-plot-singlelevel-conus`.
 
 ## Command-line interface (CLI)
 
@@ -79,6 +84,55 @@ Downloaded and processed files follow the naming convention:
 
 ```
 hrrr.<YYYYMMDD>/<HRRR region tag>/hrrr.t<II>z.wrfsfcf<FF>.grib2  
+hrrr.<YYYYMMDD>/<HRRR region tag>/hrrr.t<II>z.wrfsfcf<FF>.nc
+```
+
+where:
+
+- `YYYYMMDD` is the year, month, and day  
+- `II` is the initialization hour  
+- `FF` is the forecast lead time in hours
+
+
+### `hrrr-fetch-sfc-forecast-zarr`
+
+Read an inclusive range of HRRR surface forecast hours from the traditional HRRR Zarr archive on AWS S3 and save one compatible netCDF file per forecast hour. Only the selected variables are read from the remote archive; no local Zarr store is created.
+
+**Usage:**
+
+```bash
+hrrr-fetch-sfc-forecast-zarr START_YEAR START_MONTH START_DAY END_YEAR END_MONTH END_DAY FORECAST_INIT_HOUR FIRST_FORECAST_LEAD_HOUR LAST_FORECAST_LEAD_HOUR REGION DATA_DIR [-n N_JOBS] [-r] [-v]
+```
+
+**Arguments:**
+
+- `START_YEAR START_MONTH START_DAY`: beginning of date range  
+- `END_YEAR END_MONTH END_DAY`: end of date range  
+- `FORECAST_INIT_HOUR`: forecast initialization hour (UTC)  
+- `FIRST_FORECAST_LEAD_HOUR`: first forecast lead time to read, inclusive; must be at least 1  
+- `LAST_FORECAST_LEAD_HOUR`: last forecast lead time to read, inclusive  
+- `REGION`: HRRR region; the traditional HRRR Zarr forecast archive supports only `conus`  
+- `DATA_DIR`: local directory into which the netCDF files will be written  
+
+**Options:**
+
+- `-n N_JOBS, --n N_JOBS`: number of model runs to process in parallel; higher values also increase memory use  
+- `-r, --refresh`: recreate requested netCDF files even if they already exist  
+- `-v, --verbose`: print detailed progress information  
+
+The first and last forecast lead hours define an inclusive range. Forecast hour 0 is not supported because the traditional HRRR Zarr archive stores it separately as an analysis; forecast stores contain forecast hours 1 onward. The archive contains CONUS forecasts beginning with HRRR version 3 at 2018-07-12 18 UTC. A requested forecast lead hour must be available for every model run in the date range.
+
+The command writes the following variables:
+
+- Air temperature at 2 m above ground
+- Dew point temperature at 2 m above ground
+- West-east wind component at 10 m above ground
+- South-north wind component at 10 m above ground
+- Total precipitation accumulated over 1 hour
+
+Generated files follow the naming convention:
+
+```
 hrrr.<YYYYMMDD>/<HRRR region tag>/hrrr.t<II>z.wrfsfcf<FF>.nc
 ```
 
@@ -133,6 +187,8 @@ hrrr-plot-singlelevel-conus /path/to/file.nc
 ## Modules
 
 - **`hrrr_fetch_surface_forecasts.py`**: Provides the run_fetch() function for programmatic use, allowing Python scripts to download HRRR surface forecast GRIB2 files from NOAA’s S3 archive over a specified date range and configuration, and optionally extract selected surface variables into netCDF files for further analysis.
+
+- **`hrrr_fetch_surface_forecasts_zarr.py`**: Provides the run_fetch() function for programmatic use, allowing Python scripts to read an inclusive range of HRRR surface forecast hours from the traditional HRRR Zarr archive and write one compatible netCDF file per forecast hour. It supports CONUS forecasts from forecast hour 1 onward and does not create a local Zarr store.
 
 - **`s3.py`**: Functions for interacting with the NOAA HRRR S3 bucket, including:
   - Listing available files via direct path matching or wildcard-style expressions

@@ -184,6 +184,7 @@ def grib2nc(grib_file: Path, verbose: bool = False) -> Path:
         If the input GRIB file does not exist.
     ValueError
         If any required field is missing or has more than one matching message,
+        except for 1-hour accumulated precipitation at forecast lead hour 0,
         or if the selected fields do not use the same horizontal grid.
     '''
     grib_file = grib_file.expanduser().resolve()
@@ -209,9 +210,30 @@ def grib2nc(grib_file: Path, verbose: bool = False) -> Path:
             )
 
             reference_shape = None
+            forecast_lead_hour = None
 
             for variable, field in _SFC_GRIB_FIELDS.items():
+                if variable == 'APCP_P8_L1_GLC0_acc1h' and forecast_lead_hour == 0:
+                    try:
+                        matching_grbs = grbs.select(**field['selector'])
+                    except ValueError:
+                        matching_grbs = []
+
+                    if not matching_grbs:
+                        print(
+                            'skipped: APCP_P8_L1_GLC0_acc1h is not present '
+                            'or required at forecast lead hour 0',
+                            flush=True,
+                        )
+                        continue
+
                 grb = _select_one_grib_message(grbs, variable, field['selector'])
+
+                if forecast_lead_hour is None:
+                    forecast_lead_hour = int(
+                        round((grb.validDate - grb.analDate).total_seconds() / 3600)
+                    )
+
                 shape = (grb.Ny, grb.Nx)
 
                 if reference_shape is None:

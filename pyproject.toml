@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hrrr-data"
-version = "2.4.1"
-description = "A toolkit for accessing, downloading, and processing HRRR Lite data"
+version = "2.4.2"
+description = "A toolkit for accessing, downloading, and processing HRRR data"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "BSD-3-Clause"

@@ -72,13 +72,11 @@ _SFC_GRIB_FIELDS = {
 }
 
 
-# Zarr fields to extract into netCDF files. Forecast hour 0 is not included in
-# these forecast arrays; it is stored separately in an analysis Zarr store.
+# Output metadata for the Zarr fields extracted into netCDF files. Their
+# archive paths are defined in s3.py. Forecast hour 0 is stored separately.
 
 _SFC_ZARR_FIELDS = {
     'TMP_P0_L103_GLC0': {
-        'zarr_group': '2m_above_ground/TMP/2m_above_ground',
-        'zarr_variable': 'TMP',
         'long_name': 'Air temperature at 2 m above ground',
         'level_type': 'heightAboveGround',
         'parameter_category': 0,
@@ -87,8 +85,6 @@ _SFC_ZARR_FIELDS = {
         'units': 'K',
     },
     'DPT_P0_L103_GLC0': {
-        'zarr_group': '2m_above_ground/DPT/2m_above_ground',
-        'zarr_variable': 'DPT',
         'long_name': 'Dew point temperature at 2 m above ground',
         'level_type': 'heightAboveGround',
         'parameter_category': 0,
@@ -97,8 +93,6 @@ _SFC_ZARR_FIELDS = {
         'units': 'K',
     },
     'U10': {
-        'zarr_group': '10m_above_ground/UGRD/10m_above_ground',
-        'zarr_variable': 'UGRD',
         'long_name': 'West-east wind speed at 10.0 m',
         'level_type': 'heightAboveGround',
         'parameter_category': 2,
@@ -107,8 +101,6 @@ _SFC_ZARR_FIELDS = {
         'units': 'm/s',
     },
     'V10': {
-        'zarr_group': '10m_above_ground/VGRD/10m_above_ground',
-        'zarr_variable': 'VGRD',
         'long_name': 'South-north wind speed at 10.0 m',
         'level_type': 'heightAboveGround',
         'parameter_category': 2,
@@ -117,8 +109,6 @@ _SFC_ZARR_FIELDS = {
         'units': 'm/s',
     },
     'APCP_P8_L1_GLC0_acc1h': {
-        'zarr_group': 'surface/APCP_1hr_acc_fcst/surface',
-        'zarr_variable': 'APCP_1hr_acc_fcst',
         'long_name': 'Total precipitation accumulated over 1 hour',
         'level_type': 'surface',
         'parameter_category': 1,
@@ -604,7 +594,7 @@ def extract_select_sfc_zarr_vars_to_netcdf(
 
     store, zarr_url = s3.zarr_forecast_store(date, init_hour)
 
-    coordinate_group = '2m_above_ground/TMP'
+    coordinate_group = s3._ZARR_FORECAST_COORDINATE_GROUP
     with xr.open_zarr(
         store,
         group=coordinate_group,
@@ -729,15 +719,17 @@ def _write_zarr_netcdf_files(
             zarr_time_slice = slice(first_index, last_index + 1)
 
             for variable, field in _SFC_ZARR_FIELDS.items():
+                zarr_path = s3._ZARR_SURFACE_FIELD_PATHS[variable]
+                zarr_group, _, zarr_variable_name = zarr_path.rpartition('/')
                 with xr.open_zarr(
                     store,
-                    group=field['zarr_group'],
+                    group=zarr_group,
                     consolidated=True,
                     chunks=None,
                     decode_times=False,
                     mask_and_scale=False,
                 ) as field_ds:
-                    zarr_variable = field_ds[field['zarr_variable']]
+                    zarr_variable = field_ds[zarr_variable_name]
                     _validate_zarr_variable(zarr_variable, variable, latitude.shape)
 
                     values = np.asarray(

@@ -8,22 +8,247 @@ Each object in S3 is stored as a key-object pair, where:
 
 The key is a unique string that identifies the object (like a file path).
 
-In this module, we refer to the "keys" as "paths", and they are relative to the NOAA HRRR bucket.
+GRIB paths are relative to the NOAA HRRR bucket. The traditional HRRR Zarr
+archive is stored in the separate hrrrzarr bucket.
 '''
 
 import hashlib
+import json
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
+from itertools import product
+from math import ceil
 from pathlib import Path
 
+import numpy as np
 import s3fs
+import xarray as xr
 
 BUCKET = 'noaa-hrrr-bdp-pds'
 
 _ZARR_BUCKET = 'hrrrzarr'
 _ZARR_FORECAST_START = datetime(2018, 7, 12, 18)
 _ZARR_GRID_PATH = 'grid/HRRR_chunk_index.zarr'
+_ZARR_FORECAST_COORDINATE_GROUP = '2m_above_ground/TMP'
+
+# Map output field names to their array paths in a forecast Zarr store.
+_ZARR_SURFACE_FIELD_PATHS = {
+    'TMP_P0_L103_GLC0': '2m_above_ground/TMP/2m_above_ground/TMP',
+    'DPT_P0_L103_GLC0': '2m_above_ground/DPT/2m_above_ground/DPT',
+    'U10': '10m_above_ground/UGRD/10m_above_ground/UGRD',
+    'V10': '10m_above_ground/VGRD/10m_above_ground/VGRD',
+    'APCP_P8_L1_GLC0_acc1h': 'surface/APCP_1hr_acc_fcst/surface/APCP_1hr_acc_fcst',
+}
+
+
+def grib_surface_forecast_files_exist(
+    start_date: datetime,
+    end_date: datetime,
+    init_hour: int,
+    forecast_lead_hour: int,
+    region: str,
+) -> bool:
+    '''
+    Check whether all specified HRRR surface GRIB2 files exist on S3.
+
+    The date range is inclusive. The objects are in the NOAA HRRR bucket.
+    S3 access errors propagate to the caller instead of being reported as missing
+    files.
+
+    Parameters
+    ----------
+    start_date : datetime
+        First forecast initialization date to check.
+    end_date : datetime
+        Last forecast initialization date to check, inclusive.
+    init_hour : int
+        Forecast initialization hour in UTC, from 0 through 23.
+    forecast_lead_hour : int
+        Nonnegative forecast lead time in hours.
+    region : str
+        HRRR region identifier used in the S3 key, for example ``'conus'``.
+
+    Returns
+    -------
+    bool
+        True if every requested GRIB2 object exists; False if any is absent.
+
+    Raises
+    ------
+    ValueError
+        If the date range or hour arguments are invalid.
+    '''
+    if start_date > end_date:
+        raise ValueError('Start date must be earlier than or equal to end date')
+    if not 0 <= init_hour <= 23:
+        raise ValueError('Forecast initialization hour must be between 0 and 23')
+    if forecast_lead_hour < 0:
+        raise ValueError('Forecast lead hour must be nonnegative')
+
+    fs = s3fs.S3FileSystem(anon=True)
+    date = start_date
+    while date <= end_date:
+        key = (
+            f'hrrr.{date:%Y%m%d}/{region}/'
+            f'hrrr.t{init_hour:02d}z.wrfsfcf{forecast_lead_hour:02d}.grib2'
+        )
+        if not fs.exists(f'{BUCKET}/{key}'):
+            return False
+        date += timedelta(days=1)
+
+    return True
+
+
+def zarr_surface_forecast_files_exist(
+    start_date: datetime,
+    end_date: datetime,
+    init_hour: int,
+    first_forecast_lead_hour: int,
+    last_forecast_lead_hour: int,
+    region: str,
+) -> bool:
+    '''
+    Check whether specified HRRR surface forecast Zarr objects exist on S3.
+
+    Check each forecast store, its requested lead hours, the chunks for the
+    surface fields defined in ``_ZARR_SURFACE_FIELD_PATHS``, and the static grid
+    coordinates. These objects reside in the separate ``hrrrzarr`` bucket.
+    Missing S3 objects return False; other S3 access errors propagate.
+
+    Parameters
+    ----------
+    start_date : datetime
+        First forecast initialization date to check.
+    end_date : datetime
+        Last forecast initialization date to check, inclusive.
+    init_hour : int
+        Forecast initialization hour in UTC, from 0 through 23.
+    first_forecast_lead_hour : int
+        First requested forecast lead hour, inclusive; must be at least 1.
+    last_forecast_lead_hour : int
+        Last requested forecast lead hour, inclusive.
+    region : str
+        Geographic region identifier; only ``'conus'`` is supported.
+
+    Returns
+    -------
+    bool
+        True if every required source object exists and every requested lead
+        hour is present in each forecast store; False otherwise.
+
+    Raises
+    ------
+    ValueError
+        If the dates, initialization hour, lead-hour range, or region is invalid.
+    '''
+    validate_zarr_forecast_request(
+        start_date,
+        end_date,
+        init_hour,
+        first_forecast_lead_hour,
+        last_forecast_lead_hour,
+        region,
+        None,
+    )
+    fs = s3fs.S3FileSystem(anon=True)
+    grid_url = f's3://{_ZARR_BUCKET}/{_ZARR_GRID_PATH}'
+    coordinate_group = _ZARR_FORECAST_COORDINATE_GROUP
+    variable_paths = set(_ZARR_SURFACE_FIELD_PATHS.values())
+    groups = {coordinate_group} | {path.rpartition('/')[0] for path in variable_paths}
+    grid_checked = False
+    date = start_date
+
+    while date <= end_date:
+        store_url = f's3://{_ZARR_BUCKET}/{_zarr_forecast_path(date, init_hour)}'
+        if not fs.exists(f'{store_url}/.zmetadata'):
+            return False
+
+        store_metadata = json.loads(fs.cat(f'{store_url}/.zmetadata'))['metadata']
+        if f'{coordinate_group}/forecast_period/.zarray' not in store_metadata:
+            return False
+        store = s3fs.S3Map(root=store_url, s3=fs, check=False)
+        with xr.open_zarr(
+            store,
+            group=coordinate_group,
+            consolidated=True,
+            chunks=None,
+            decode_times=False,
+            mask_and_scale=False,
+        ) as ds:
+            if 'forecast_period' not in ds:
+                return False
+            periods = np.asarray(ds['forecast_period'].values, dtype=np.int64)
+
+        period_to_index = {int(hour): index for index, hour in enumerate(periods)}
+        indices = [
+            period_to_index.get(hour)
+            for hour in range(first_forecast_lead_hour, last_forecast_lead_hour + 1)
+        ]
+        if None in indices or indices != list(range(indices[0], indices[-1] + 1)):
+            return False
+
+        # Include the arrays in the coordinate group as well as the selected
+        # fields. Each forecast field uses time as its first chunk dimension.
+        sources = [(store_url, variable_paths | {f'{coordinate_group}/forecast_period'})]
+        if not grid_checked:
+            sources.append((grid_url, {'latitude', 'longitude'}))
+
+        for url, required_paths in sources:
+            metadata_url = f'{url}/.zmetadata'
+            if not fs.exists(metadata_url):
+                return False
+            metadata = (
+                store_metadata if url == store_url else json.loads(fs.cat(metadata_url))['metadata']
+            )
+            array_paths = {
+                key.removesuffix('/.zarray') for key in metadata if key.endswith('/.zarray')
+            }
+            if not required_paths <= array_paths:
+                return False
+
+            if url == grid_url:
+                selected_paths = {path for path in array_paths if '/' not in path}
+            else:
+                selected_paths = {path for path in array_paths if path.rpartition('/')[0] in groups}
+
+            for path in selected_paths:
+                array_metadata = metadata[f'{path}/.zarray']
+                if isinstance(array_metadata, str):
+                    array_metadata = json.loads(array_metadata)
+                shape = array_metadata['shape']
+                chunks = array_metadata['chunks']
+                chunk_ranges = [
+                    range(ceil(length / size)) for length, size in zip(shape, chunks, strict=True)
+                ]
+                if url == store_url and path in variable_paths:
+                    if max(indices) >= shape[0]:
+                        return False
+                    chunk_ranges[0] = sorted({index // chunks[0] for index in indices})
+
+                separator = array_metadata.get('dimension_separator', '.')
+                array_root = f'{url}/{path}'
+                try:
+                    listed = (
+                        fs.find(array_root) if separator == '/' else fs.ls(array_root, detail=False)
+                    )
+                except FileNotFoundError:
+                    return False
+                root = array_root.removeprefix('s3://') + '/'
+                available = {key.removeprefix('s3://').removeprefix(root) for key in listed}
+                expected = {
+                    separator.join(map(str, index)) if index else '0'
+                    for index in product(*chunk_ranges)
+                }
+                if not expected <= available:
+                    return False
+
+            if url == grid_url:
+                grid_checked = True
+
+        date += timedelta(days=1)
+
+    return True
 
 
 def validate_zarr_forecast_request(

@@ -24,6 +24,8 @@ from pathlib import Path
 import numpy as np
 import s3fs
 import xarray as xr
+from zarr.core.sync import sync as zarr_sync
+from zarr.storage import FsspecStore
 
 BUCKET = 'noaa-hrrr-bdp-pds'
 
@@ -288,25 +290,42 @@ def validate_zarr_forecast_request(
         )
 
 
-def zarr_forecast_store(date: datetime, init_hour: int) -> tuple[s3fs.S3Map, str]:
-    '''Open one traditional HRRR forecast Zarr store for anonymous access.'''
-
+def zarr_forecast_store(date: datetime, init_hour: int) -> tuple[FsspecStore, str]:
+    '''Open a forecast store for Zarr 3; call close_zarr_store after reading.'''
     zarr_path = _zarr_forecast_path(date, init_hour)
     zarr_url = 's3://' + _ZARR_BUCKET + '/' + zarr_path
-    fs = s3fs.S3FileSystem(anon=True)
+    store = _open_zarr_store(_ZARR_BUCKET + '/' + zarr_path)
+    try:
+        if not zarr_sync(store.exists('.zmetadata')):
+            raise FileNotFoundError('HRRR Zarr forecast store is unavailable: ' + zarr_url)
+    except BaseException:
+        close_zarr_store(store)
+        raise
+    return store, zarr_url
 
-    if not fs.exists(zarr_url + '/.zmetadata'):
-        raise FileNotFoundError('HRRR Zarr forecast store is unavailable: ' + zarr_url)
 
-    return s3fs.S3Map(root=zarr_url, s3=fs, check=False), zarr_url
+def zarr_grid_store() -> FsspecStore:
+    '''Open the Zarr 3 grid store; call close_zarr_store after reading.'''
+    return _open_zarr_store(_ZARR_BUCKET + '/' + _ZARR_GRID_PATH)
 
 
-def zarr_grid_store() -> s3fs.S3Map:
-    '''Open the static HRRR CONUS latitude and longitude Zarr store.'''
+def _open_zarr_store(path: str) -> FsspecStore:
+    '''Give Zarr its own asynchronous filesystem instead of an S3Map to convert.'''
+    fs = s3fs.S3FileSystem(anon=True, asynchronous=True, skip_instance_cache=True)
+    return FsspecStore(fs=fs, path=path, read_only=True)
 
-    grid_url = 's3://' + _ZARR_BUCKET + '/' + _ZARR_GRID_PATH
-    fs = s3fs.S3FileSystem(anon=True)
-    return s3fs.S3Map(root=grid_url, s3=fs, check=False)
+
+def close_zarr_store(store: FsspecStore) -> None:
+    '''Close the store's client on Zarr's event loop, including after failed reads.'''
+    fs = store.fs
+    creator = getattr(fs, '_s3creator', None)
+    if creator is not None:
+        # Async s3fs instances have no automatic client finalizer. All reads
+        # and cleanup use Zarr's loop, and no converted filesystem is left open.
+        zarr_sync(creator.__aexit__(None, None, None))
+        fs._s3 = None
+        fs._s3creator = None
+    store.close()
 
 
 def _zarr_forecast_path(date: datetime, init_hour: int) -> str:

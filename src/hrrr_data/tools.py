@@ -594,45 +594,48 @@ def extract_select_sfc_zarr_vars_to_netcdf(
 
     store, zarr_url = s3.zarr_forecast_store(date, init_hour)
 
-    coordinate_group = s3._ZARR_FORECAST_COORDINATE_GROUP
-    with xr.open_zarr(
-        store,
-        group=coordinate_group,
-        consolidated=True,
-        chunks=None,
-        decode_times=False,
-        mask_and_scale=False,
-    ) as coordinate_ds:
-        forecast_periods = np.asarray(coordinate_ds['forecast_period'].values, dtype=np.int64)
+    try:
+        coordinate_group = s3._ZARR_FORECAST_COORDINATE_GROUP
+        with xr.open_zarr(
+            store,
+            group=coordinate_group,
+            consolidated=True,
+            chunks=None,
+            decode_times=False,
+            mask_and_scale=False,
+        ) as coordinate_ds:
+            forecast_periods = np.asarray(coordinate_ds['forecast_period'].values, dtype=np.int64)
 
-    lead_indices = _zarr_forecast_lead_indices(
-        forecast_periods,
-        first_forecast_lead_hour,
-        last_forecast_lead_hour,
-        zarr_url,
-    )
-
-    latitude, longitude = _load_zarr_grid_coordinates()
-    requested_output = {
-        forecast_lead_hour: output_file
-        for forecast_lead_hour, output_file in zip(
-            range(first_forecast_lead_hour, last_forecast_lead_hour + 1),
-            output_files,
-            strict=True,
+        lead_indices = _zarr_forecast_lead_indices(
+            forecast_periods,
+            first_forecast_lead_hour,
+            last_forecast_lead_hour,
+            zarr_url,
         )
-        if refresh or not output_file.exists()
-    }
 
-    _write_zarr_netcdf_files(
-        store,
-        date,
-        init_hour,
-        lead_indices,
-        requested_output,
-        latitude,
-        longitude,
-        verbose,
-    )
+        latitude, longitude = _load_zarr_grid_coordinates()
+        requested_output = {
+            forecast_lead_hour: output_file
+            for forecast_lead_hour, output_file in zip(
+                range(first_forecast_lead_hour, last_forecast_lead_hour + 1),
+                output_files,
+                strict=True,
+            )
+            if refresh or not output_file.exists()
+        }
+
+        _write_zarr_netcdf_files(
+            store,
+            date,
+            init_hour,
+            lead_indices,
+            requested_output,
+            latitude,
+            longitude,
+            verbose,
+        )
+    finally:
+        s3.close_zarr_store(store)
 
     return output_files
 
@@ -845,15 +848,18 @@ def _load_zarr_grid_coordinates() -> tuple[np.ndarray, np.ndarray]:
     if _GRID_LATITUDE is None or _GRID_LONGITUDE is None:
         grid_store = s3.zarr_grid_store()
 
-        with xr.open_zarr(
-            grid_store,
-            consolidated=True,
-            chunks=None,
-            decode_times=False,
-            mask_and_scale=False,
-        ) as grid_ds:
-            _GRID_LATITUDE = np.asarray(grid_ds['latitude'].values, dtype=np.float32)
-            _GRID_LONGITUDE = np.asarray(grid_ds['longitude'].values, dtype=np.float32)
+        try:
+            with xr.open_zarr(
+                grid_store,
+                consolidated=True,
+                chunks=None,
+                decode_times=False,
+                mask_and_scale=False,
+            ) as grid_ds:
+                _GRID_LATITUDE = np.asarray(grid_ds['latitude'].values, dtype=np.float32)
+                _GRID_LONGITUDE = np.asarray(grid_ds['longitude'].values, dtype=np.float32)
+        finally:
+            s3.close_zarr_store(grid_store)
 
     return _GRID_LATITUDE, _GRID_LONGITUDE
 

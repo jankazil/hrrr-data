@@ -22,6 +22,7 @@ import argparse
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timedelta
+from multiprocessing import get_context
 from pathlib import Path
 
 from hrrr_data import s3, tools
@@ -72,7 +73,8 @@ def run_fetch(
     n_jobs : int, optional
         Number of model runs to process in parallel. Default is 1. Increasing
         this value also increases memory use because each process reads one
-        forecast cube at a time.
+        forecast cube at a time. Workers use the spawn start method so S3
+        connections and their event loops are not inherited from the parent.
     refresh : bool, optional
         If True, recreate netCDF files even if they already exist. If False,
         existing netCDF files are retained. Default is False.
@@ -131,7 +133,7 @@ def run_fetch(
                 )
             )
     else:
-        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+        with ProcessPoolExecutor(max_workers=n_jobs, mp_context=get_context('spawn')) as executor:
             futures = {
                 executor.submit(
                     tools.extract_select_sfc_zarr_vars_to_netcdf,

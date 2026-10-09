@@ -153,6 +153,8 @@ def run_fetch(
                 date = futures[future]
                 try:
                     output_files.extend(future.result())
+                except FileNotFoundError:
+                    raise
                 except Exception as exc:
                     raise RuntimeError(
                         f'Processing the HRRR Zarr forecast initialized on '
@@ -263,6 +265,9 @@ def main(argv=None) -> int:
             refresh=args.refresh,
             verbose=args.verbose,
         )
+    except FileNotFoundError as exc:
+        print(f'ERROR: {exc}', file=sys.stderr)
+        return 1
     except ValueError as exc:
         parser.error(str(exc))
 

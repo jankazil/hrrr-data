@@ -169,18 +169,24 @@ def zarr_surface_forecast_files_exist(
         store_metadata = json.loads(fs.cat(f'{store_url}/.zmetadata'))['metadata']
         if f'{coordinate_group}/forecast_period/.zarray' not in store_metadata:
             return False
-        store = s3fs.S3Map(root=store_url, s3=fs, check=False)
-        with xr.open_zarr(
-            store,
-            group=coordinate_group,
-            consolidated=True,
-            chunks=None,
-            decode_times=False,
-            mask_and_scale=False,
-        ) as ds:
-            if 'forecast_period' not in ds:
-                return False
-            periods = np.asarray(ds['forecast_period'].values, dtype=np.int64)
+        try:
+            store, _ = zarr_forecast_store(date, init_hour)
+        except FileNotFoundError:
+            return False
+        try:
+            with xr.open_zarr(
+                store,
+                group=coordinate_group,
+                consolidated=True,
+                chunks=None,
+                decode_times=False,
+                mask_and_scale=False,
+            ) as ds:
+                if 'forecast_period' not in ds:
+                    return False
+                periods = np.asarray(ds['forecast_period'].values, dtype=np.int64)
+        finally:
+            close_zarr_store(store)
 
         period_to_index = {int(hour): index for index, hour in enumerate(periods)}
         indices = [

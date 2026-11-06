@@ -21,7 +21,7 @@ dependencies:
   # Development tooling.
   - pytest
   - pytest-cov
-  - ruff
+  - ruff==0.17.4
   - pre-commit
 
   # Jupyter support.

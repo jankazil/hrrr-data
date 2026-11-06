@@ -17,10 +17,37 @@ It provides:
 
 ## Installation
 
+Python 3.12 or newer is required. CI currently checks Python 3.12 on Ubuntu;
+installation and runtime compatibility on newer Python versions remain unverified.
+
 ### conda / mamba
 ```bash
 mamba install -c jan.kazil -c conda-forge hrrr-data
 ```
+
+### Development installation with pip
+
+From the repository root, in an activated Python environment:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+If pip cannot find a compatible `pygrib` wheel, it builds from source and needs
+a C compiler plus the ecCodes C library and development headers. On Ubuntu,
+install the prerequisites before running pip:
+
+```bash
+sudo apt-get update
+sudo apt-get install --no-install-recommends -y build-essential libeccodes-dev
+```
+
+For ecCodes installed outside the standard system locations, set `ECCODES_DIR`
+to its installation prefix when running pip. See the
+[pygrib installation guide](https://jswhit.github.io/pygrib/installing.html).
+Other scientific dependencies may also need native libraries when wheels are
+unavailable. Installing ecCodes alone does not establish compatibility with a
+newer Python version.
 
 ## Overview
 
@@ -215,6 +242,17 @@ The `demos` directory provides example scripts demonstrating individual operatio
 - `demo_s3_info.py`: Retrieve and display S3 object metadata.
 
 ## Development
+
+CI uses an explicit Python 3.12 matrix entry rather than a floating latest-Python
+version. Add versions after verifying dependency installation and runtime behavior.
+The checkout and Python setup actions use Node.js 24 releases.
+
+Ruff is pinned to 0.17.4 in `pyproject.toml`, `environment.yml`, and the pre-commit
+configuration; update these together. Ruff targets Python 3.12. CI runs the
+non-fixing checks `python -m ruff check .` and `python -m ruff format --check .`,
+followed by the existing pytest suite. That suite currently contains only an
+arithmetic placeholder and does not verify forecast processing or scientific
+correctness.
 
 ### Code Development Commands
 

@@ -84,6 +84,12 @@ Use [README.md](README.md) for user workflows, CLI arguments, and file naming.
   shared runtime dependencies.
 - CI installs with `python -m pip install -e ".[dev]"`. This is a verified setup
   command, not permission to install or access external files under isolation.
+- CI installs `build-essential` and `libeccodes-dev` on Ubuntu before pip so
+  `pygrib` source builds can find a compiler and ecCodes headers/libraries.
+  Nonstandard ecCodes installations can use `ECCODES_DIR` during pip installation.
+  These prerequisites do not establish compatibility with newer Python versions.
+- Ruff is pinned to 0.17.4 in `pyproject.toml`, `environment.yml`, and
+  `.pre-commit-config.yaml`; update these together. The lint hook is `ruff-check`.
 - `make setup-dev-env` invokes `scripts/setup-dev-env.sh`: requires conda, prefers
   mamba, generates `environment-dev.yml`, removes/recreates `hrrr-data-dev`,
   replaces its user Jupyter kernel, installs editable code and pre-commit hooks.
@@ -97,13 +103,16 @@ fixtures, caches and temporary outputs comply with the boundary before execution
 | Command | Behavior |
 | --- | --- |
 | `python -m ruff check .` | Non-fixing lint command used by CI. |
-| `python -m ruff format --check .` | Non-fixing counterpart of the configured formatter. |
+| `python -m ruff format --check .` | Non-fixing formatting check used by CI. |
 | `pytest` or `make test` | Runs tests under `tests/`; CI also uses `pytest`. |
 | `make fmt` | Reformats Python files. |
 | `make lint` | Runs Ruff with `--fix`, modifying files. |
 | `make check` | Runs both formatting and fixing lint; does not run tests. |
 
-CI covers Python `3.12` and floating `3.x` on Ubuntu. Pre-commit configuration adds
+CI covers an explicit Python `3.12` matrix entry on Ubuntu. Add Python versions
+after verifying dependency installation and runtime behavior; newer versions
+remain unverified. CI uses `actions/checkout@v7` and `actions/setup-python@v7`,
+which use Node.js 24. Pre-commit configuration adds
 YAML/JSON, final-newline and whitespace checks plus Ruff lint/format hooks.
 There is no implemented `make type` or `make upload-pypi` target despite README
 references, and no dedicated build-only Makefile target. Do not invent substitutes
@@ -169,8 +178,7 @@ exceptions; use the repository configuration rather than introducing a new style
   repository inspection. Verify these in an explicitly authorized environment.
 - `zarr` is unpinned although source imports Zarr 3 APIs; s3fs/Zarr lifecycle code
   uses internal attributes/APIs. Verify version compatibility when changing them.
-  Ruff targets `py310` even though runtime requires Python 3.12+; this is a
-  configuration discrepancy, not support for Python 3.10.
+- Ruff targets `py312`, matching the Python 3.12 minimum runtime requirement.
 - README variable lists and some extraction docstrings differ from current code
   (for example, references to relative humidity or derived wind speed). Inspect
   field dictionaries and implementations before relying on those descriptions.

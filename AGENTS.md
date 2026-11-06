@@ -2,26 +2,22 @@
 
 ## Project Scope and Isolation
 
-**The project root is the directory containing this `AGENTS.md` (`.` relative to
-this file). That directory is the exclusive project boundary for every session.**
+**The project root is the directory containing this `AGENTS.md` (`.` relative to this file). These instructions apply throughout that repository, including after it is moved.**
 
-- Read, search, analyze, and modify only files contained within this root.
-- Do not inspect parent directories, sibling projects, or other external locations,
-  including external configuration files or installed dependency source code.
-- Do not follow symbolic links or external Git references outside the root. Check
-  destinations before using linked paths, worktree metadata, submodules, or Git
-  object alternates; do not access an external destination.
-- Base project-specific decisions on verified contents of this repository. Do not
-  import assumptions from unrelated projects or previous development sessions.
-- If an operation requires information or files outside the boundary, report that
-  dependency instead of accessing it. Repository links and service URLs describe
-  interfaces; they do not authorize external inspection or network access.
-- Keep development inputs, outputs, fixtures, and temporary files inside the root.
-  Review scripts for external effects before execution. The setup and publishing
-  scripts described below require external resources and cannot be run unchanged
-  under this isolation policy.
+- Treat the repository root as the exclusive project boundary. Read, search, analyze, and modify project files only inside it. Run commands from the root unless an in-repository script requires another directory within the root.
+- Do not inspect parent directories, sibling projects, unrelated workspaces, global configuration, installed dependency source, or other external locations for project context. Do not import assumptions from other projects or previous sessions.
+- Check path containment before following symbolic links, Git worktree/submodule references, object alternates, configuration includes, or paths that may escape through `..`. Do not follow references outside the root.
+- External URLs, paths, and credentials mentioned in repository files describe interfaces or dependencies; they do not authorize accessing resources outside the root. Report any required outside-root access instead of performing it.
+- Keep development inputs, generated outputs, caches, fixtures, and temporary project files inside the root. Inspect scripts for filesystem, environment, network, or deployment effects before running them. Do not run workflows that cross the project boundary under these instructions.
 
-## Purpose and Repository Map
+## General Agent Instructions
+
+- Base project-specific decisions on verified repository contents. Read the files relevant to the task; distinguish implementation facts, documentation claims, test results, and unverified assumptions.
+- Before editing, inspect the relevant code and working-tree state. Make focused changes, preserve unrelated work, and retain established interfaces and data contracts unless the task requires otherwise.
+- Use relevant checks that are safe in the available environment. Do not confuse a passing placeholder test, build, or lint check with end-to-end or scientific correctness. Report the checks actually run, failures, and verification gaps.
+- Do not expose credentials, or perform publishing, deployment, destructive environment setup, or other unrelated side effects as routine development or validation.
+
+## Project Overview and Repository Map
 
 `hrrr-data` is a Python toolkit for retrieving NOAA High-Resolution Rapid Refresh
 (HRRR) forecasts, extracting surface fields into netCDF, and plotting CONUS maps.
@@ -77,7 +73,7 @@ Use [README.md](README.md) for user workflows, CLI arguments, and file naming.
   a returned list does not prove all requested GRIB files downloaded. Download
   integrity currently compares local MD5 with S3 ETag and warns on mismatch.
 
-## Environment, Configuration and External Interfaces
+## Environment and Setup
 
 - Python requirement: **3.12+** (`pyproject.toml`, `environment.yml`). Packaging
   uses the `src/` layout, setuptools >=77, and wheel.
@@ -92,32 +88,8 @@ Use [README.md](README.md) for user workflows, CLI arguments, and file naming.
   mamba, generates `environment-dev.yml`, removes/recreates `hrrr-data-dev`,
   replaces its user Jupyter kernel, installs editable code and pre-commit hooks.
   It affects locations outside this root; report this before attempting setup.
-- Application configuration is through CLI arguments/function parameters and
-  constants in `s3.py`; no application environment-variable interface was found.
-- Source uses anonymous, read-only S3 access to `noaa-hrrr-bdp-pds` (GRIB) and
-  `hrrrzarr` (Zarr). Forecast stores follow
-  `sfc/YYYYMMDD/YYYYMMDD_IIz_fcst.zarr`; static coordinates come from
-  `grid/HRRR_chunk_index.zarr`. Network access is an external dependency.
-- Zarr access uses `FsspecStore`, an asynchronous s3fs filesystem with instance
-  caching disabled, and consolidated metadata. Always close stores through
-  `s3.close_zarr_store`, including failed reads; cleanup uses Zarr's event loop.
-- `make upload-anaconda` runs a build-and-upload script, not a validation task.
-  It requires conda and `ANACONDA_API_TOKEN`; optional overrides include
-  `ANACONDA_USER_NAME`, `LICENSE_ID`, `PYPROJECT`, `IMPORT_NAME_OVERRIDE`,
-  `BUILD_ENV_PREFIX`, and `BUILD_ENV_NAME`. It creates external temporary files
-  and environments and publishes to Anaconda.org. Do not use it for routine checks.
 
-## Conventions and Validation Commands
-
-Follow nearby code: snake_case functions/modules, `Path` for filesystem paths,
-annotations where established, documented public functions, and thin argparse
-entry points with `build_arg_parser()`, `main(argv=None)`, and a `SystemExit` guard.
-Console script mappings live in `[project.scripts]` in `pyproject.toml`.
-
-`.editorconfig` specifies UTF-8, LF, a final newline, four-space indentation, and
-two spaces for YAML/JSON/TOML. Ruff uses a 100-character line length and preserves
-existing quote style. Enabled lint groups are E, F, I, UP, B, SIM with configured
-exceptions; use the repository configuration rather than introducing a new style.
+## Development Commands and Validation
 
 Run commands from the root with an available project environment. Check that tools,
 fixtures, caches and temporary outputs comply with the boundary before execution.
@@ -137,7 +109,36 @@ There is no implemented `make type` or `make upload-pypi` target despite README
 references, and no dedicated build-only Makefile target. Do not invent substitutes
 or run release automation as a build check.
 
-## Making and Reviewing Changes
+## Coding Conventions
+
+Follow nearby code: snake_case functions/modules, `Path` for filesystem paths,
+annotations where established, documented public functions, and thin argparse
+entry points with `build_arg_parser()`, `main(argv=None)`, and a `SystemExit` guard.
+Console script mappings live in `[project.scripts]` in `pyproject.toml`.
+
+`.editorconfig` specifies UTF-8, LF, a final newline, four-space indentation, and
+two spaces for YAML/JSON/TOML. Ruff uses a 100-character line length and preserves
+existing quote style. Enabled lint groups are E, F, I, UP, B, SIM with configured
+exceptions; use the repository configuration rather than introducing a new style.
+
+## Configuration and External Interfaces
+
+- Application configuration is through CLI arguments/function parameters and
+  constants in `s3.py`; no application environment-variable interface was found.
+- Source uses anonymous, read-only S3 access to `noaa-hrrr-bdp-pds` (GRIB) and
+  `hrrrzarr` (Zarr). Forecast stores follow
+  `sfc/YYYYMMDD/YYYYMMDD_IIz_fcst.zarr`; static coordinates come from
+  `grid/HRRR_chunk_index.zarr`. Network access is an external dependency.
+- Zarr access uses `FsspecStore`, an asynchronous s3fs filesystem with instance
+  caching disabled, and consolidated metadata. Always close stores through
+  `s3.close_zarr_store`, including failed reads; cleanup uses Zarr's event loop.
+- `make upload-anaconda` runs a build-and-upload script, not a validation task.
+  It requires conda and `ANACONDA_API_TOKEN`; optional overrides include
+  `ANACONDA_USER_NAME`, `LICENSE_ID`, `PYPROJECT`, `IMPORT_NAME_OVERRIDE`,
+  `BUILD_ENV_PREFIX`, and `BUILD_ENV_NAME`. It creates external temporary files
+  and environments and publishes to Anaconda.org. Do not use it for routine checks.
+
+## Change and Review Workflow
 
 1. Read the relevant implementation, README section and configuration before
    editing. Check the working tree and preserve unrelated changes.
@@ -153,8 +154,13 @@ or run release automation as a build check.
    ignoring a file does not make it an appropriate source change.
 5. Report behavior changed, checks actually run, and remaining verification gaps.
    Distinguish static inspection, mocked tests and real archive validation.
+6. **Maintain `AGENTS.md`:** When making changes that affect the project's
+   architecture, interfaces, dependencies, workflows, conventions, or documented
+   constraints, update the relevant sections of `AGENTS.md` in the same change.
+   Keep revisions focused and based on verified repository contents. Do not
+   modify `AGENTS.md` for changes that do not affect its accuracy or usefulness.
 
-## Known Gaps and Manual Verification
+## Known Limitations and Verification Gaps
 
 - The sole existing test checks `add(2, 2) == 4`; it provides no evidence about
   downloads, conversion, plotting, Zarr behavior or scientific correctness.

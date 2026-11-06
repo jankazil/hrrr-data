@@ -3,7 +3,7 @@ Tools for plotting High Resolution Rapid Refresh (HRRR) data.
 '''
 
 import warnings
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import cartopy.crs as ccrs
@@ -200,7 +200,7 @@ def plot_geographic(
     forecast_init_time = datetime.strptime(
         hrrr_ds[hrrr_var].attrs['initial_time'], "%m/%d/%Y (%H:%M)"
     )
-    forecast_init_time = forecast_init_time.replace(tzinfo=timezone.utc)
+    forecast_init_time = forecast_init_time.replace(tzinfo=UTC)
 
     assert hrrr_ds[hrrr_var].attrs['forecast_time_units'] == 'hours', (
         'Forecast period units must be hours'

@@ -118,6 +118,8 @@ There is no implemented `make type` or `make upload-pypi` target despite README
 references, and no dedicated build-only Makefile target. Do not invent substitutes
 or run release automation as a build check.
 
+The CI test suite is intentionally limited to `tests/test_test.py`, which asserts `hrrr_ml.test.add(2, 2) == 4`. Do not add further CI tests unless explicitly requested by the user. Passing this placeholder does not establish numerical, model, netCDF, or operational correctness. For behavioral changes, use relevant safe checks with small in-repository inputs and report what was actually verified. Avoid live network calls and expensive retraining as default validation. Keep temporary verification files inside the repository and report validation limits explicitly.
+
 ## Coding Conventions
 
 Follow nearby code: snake_case functions/modules, `Path` for filesystem paths,

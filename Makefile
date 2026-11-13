@@ -1,10 +1,10 @@
 .PHONY: fmt lint test check clean setup-dev-env upload-anaconda
 
 fmt:
-	python -m ruff format
+	ruff format
 
 lint:
-	python -m ruff check --fix
+	ruff check --fix
 
 test:
 	pytest

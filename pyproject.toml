@@ -33,7 +33,6 @@ hrrr-plot-singlelevel-conus = "hrrr_data.hrrr_plot_singlelevel_conus:main" # Con
 dev = [
   "pytest>=8",
   "pytest-cov>=5",
-  "ruff==0.17.4",
   "pre-commit>=3.7",
 ]
 

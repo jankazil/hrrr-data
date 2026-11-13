@@ -28,9 +28,25 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
-      - name: Lint (ruff)
-        run: python -m ruff check .
-      - name: Check formatting (ruff)
-        run: python -m ruff format --check .
       - name: Test (pytest)
         run: pytest
+
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Conda
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: latest
+          activate-environment: ci-lint
+      - name: Install Ruff
+        run: conda install --yes --name ci-lint --override-channels --channel conda-forge ruff
+      - name: Lint (Ruff)
+        run: conda run --name ci-lint ruff check .
+      - name: Check formatting (Ruff)
+        run: conda run --name ci-lint ruff format --check .

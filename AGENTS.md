@@ -36,15 +36,15 @@
 
 ## Architecture and Data Contracts
 
-Document established components, dependencies, data flows, public interfaces, formats, invariants, and compatibility requirements here. Record concrete constraints once verified; do not impose hypothetical ones on a new project.
+Record only stable, project-wide constraints that guide future agent work. Put component behavior, interfaces, data formats, and other implementation details in the system specification or relevant tool documentation.
 
 ## Environment and Setup
 
-Document the supported language and toolchain versions, dependency declarations, environment requirements, and verified setup procedure when they exist. Identify setup actions that install software, access the network, or modify files outside the root. Do not invent or automatically execute setup commands.
+Record only project-wide toolchain, dependency, environment, and setup constraints needed for agent work. Keep tool-specific requirements and setup procedures in the relevant documentation. Identify setup actions that install software, access the network, or modify files outside the root. Do not invent or automatically execute setup commands.
 
 ## Development Commands and Validation
 
-Document actual repository-defined commands for running, building, linting, formatting, and testing as they become available. State which commands modify files, create caches, require network access, or have other side effects. Until commands are established, inspect the repository rather than guessing them.
+Record only repository-wide commands and validation constraints here. Keep tool-specific commands and their side effects in the relevant documentation. Until commands are established, inspect the repository rather than guessing them.
 
 The CI test suite is intentionally limited to `tests/test_main.py`, which is initially empty in a new project. Do not add further CI tests unless explicitly requested by the user. Passing this placeholder does not establish numerical, model, netCDF, or operational correctness. For behavioral changes, use relevant safe checks with small in-repository inputs and report what was actually verified. Avoid live network calls and expensive retraining as default validation. Keep temporary verification files inside the repository and report validation limits explicitly.
 
@@ -89,8 +89,8 @@ Document verified configuration sources, environment-variable *names*, external 
 3. Add or update focused tests and relevant documentation when behavior changes. Avoid live services and expensive workloads for routine validation unless specifically required and authorized.
 4. Run applicable, safe checks using verified project commands. If prerequisites or permissions are missing, report the limitation rather than inventing a workaround that crosses the project boundary.
 5. Review the changed files and, when Git is available, `git diff --check`, `git diff`, and `git status`. Check for accidental generated files, credentials, destructive side effects, and compatibility changes. Summarize changes, checks performed, and remaining uncertainty.
-6. **Maintain `AGENTS.md`:** When changes affect the project's architecture, interfaces, dependencies, workflows, conventions, or documented constraints, update the relevant sections of `AGENTS.md` in the same change. Keep revisions focused and based on verified repository contents. Do not modify `AGENTS.md` when its accuracy and usefulness are unaffected.
+6. **Maintain `AGENTS.md`:** Update it only when stable project-wide agent guidance or constraints change. Keep component-specific details and task validation results in the system specification, development-step specification, or relevant tool documentation.
 
 ## Known Limitations and Verification Gaps
 
-Record observed limitations, missing tests, unresolved dependencies, documentation discrepancies, and claims requiring runtime or manual verification. Clearly distinguish confirmed problems from unverified possibilities. Remove or revise entries when evidence changes.
+Record only persistent project-wide limitations and verification gaps that affect future agent work. Keep task-specific results and component limitations in the relevant specifications or documentation. Distinguish confirmed problems from unverified possibilities, and revise entries when evidence changes.

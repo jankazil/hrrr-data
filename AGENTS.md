@@ -50,11 +50,42 @@ The CI test suite is intentionally limited to `tests/test_main.py`, which is ini
 
 ## Coding Conventions
 
-Follow repository configuration and established patterns in affected files. If there is no existing convention, use a consistent style appropriate to the task without introducing an unnecessary project-wide policy. Record agreed conventions here once established; avoid unrelated formatting changes.
+Follow `.editorconfig` if present and applicable. Beyond this, apply the following conventions when generating or editing code. Limit formatting changes to the code you touch.
 
-Prefer single quotes in computer code. Avoid unnecessary/excessive line breaks in code, only apply line breaks when lines are clearly too long.
+Prefer single quotes in computer code. Avoid unnecessary/excessive line breaks in code.
 
-Follow `.editorconfig`: UTF-8, LF, final newline, four-space default indentation, two spaces for YAML/JSON/TOML, and tabs in Makefiles.
+### Order within code units
+
+- Follow required declaration, definition, and execution order. Follow established project and language conventions for where elements belong, including conventions for entry points. Apply the user-relevance and dependency rules below where those conventions leave placement open. For example, a Python script may define `main()` near the end, just above the final `if __name__ == "__main__":` block.
+- Present the elements most relevant to users and callers first. Start with what readers need to use the unit, such as its entry points, exposed types, and supported configuration. Place internal implementation details and helpers used only within the unit later.
+- Among elements of similar user relevance, place each element before the internal elements it depends on when practical. Keep related elements together so readers can follow the main operation before reading the details that support it.
+
+### Indentation and blank lines
+
+- Use the indentation width and whitespace prescribed by the project or language convention. For example, use four spaces per indentation level in Python by default, as specified by [Python Enhancement Proposal 8](https://peps.python.org/pep-0008/#indentation). Indent nested bodies consistently and align branches and closing syntax according to the conventions for the construct.
+- Use the project's or language's usual spacing between definitions. For example, Python Enhancement Proposal 8 calls for two blank lines between top-level functions or classes and one between methods.
+- Where the language permits blank lines and project formatting rules allow them, apply the following spacing within code bodies. These preferences govern even when the language's usual style is more compact.
+  - At each nesting level, leave one blank line between sibling elements that perform distinct steps. Treat an entire nested block as one element at its enclosing level, then apply the same rule within its body. By default, treat each complete statement as a step, even when it is short.
+  - Keep consecutive statements together only when they jointly perform one immediate operation, such as decoding a value and constructing the result directly from it. A shared variable or broader purpose alone is insufficient. Keep all continuation lines of a single statement together.
+  - Leave one blank line between a named code unit’s header and its first body element, even when that element opens a nested block. If the body begins with a comment, a documentation string, or the opening delimiter of either, place it directly after the header and leave one blank line after the opening comment or documentation block before the first code element. Within the body, place the first element of a control-flow block directly after its header, including when that first element is itself a block.
+  - Within a compound construct, leave one blank line before a clause that starts a distinct alternative, recovery, or cleanup path. Keep syntax that merely closes or continues an element attached to that element.
+- Keep blank lines free of spaces and tabs. Preserve whitespace that is part of literal data or required by the language.
+
+### Comments and section headings
+
+- Place a step comment on its own line above the code it describes, at the same indentation level. Use one blank line before and after the comment when it introduces a distinct step. A short note attached to a single declaration or statement may sit directly above it.
+- Use short, concrete headings for major phases. Where the language and local style support it, put the heading between two lines that contain only the line-comment marker, all at the same indentation. Leave one blank line outside the heading block. Use a plain standalone comment for a smaller step.
+- Start comment text with a capital letter. Where the syntax permits, put one space between the line-comment marker and the text. Use short action phrases for step headings and complete sentences when explaining behavior. Keep multi-line comments together and use a marker-only line between paragraphs in a line-comment block.
+- Use comments to state what a group accomplishes and to record details a reader needs, such as assumptions, units, preconditions, fallback values, or selection criteria. For filters and masks, identify which values are included, which are excluded, and which invalid values raise an exception, if any.
+- Reserve end-of-line comments for short notes tied to one line, such as a unit or a status flag's meaning. Use a closing comment to identify the opener of a long block when the closing syntax gives little context.
+
+### Definitions, declarations, and continuations
+
+- Put a module's or routine's purpose near its opening, using the language's documentation syntax or a short comment block. When using a delimited documentation block, put the opening and closing delimiters on lines of their own and separate them from the prose with blank lines, where the syntax permits.
+- Group inputs, outputs, and local declarations by role when the language exposes them as declarations. Use short labels where they help readers find each group.
+- Wrap parameter and argument lists using the project's or language's continuation style. Where the style leaves room for choice, use one item per line and align the items consistently when that improves readability. Preserve whitespace inside literal values.
+- Follow the project's or language's spacing rules for operators and punctuation. Align assignment operators in small groups only where the established style permits it.
+
 
 ### Python
 
